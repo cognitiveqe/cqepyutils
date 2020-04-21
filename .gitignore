@@ -22,7 +22,9 @@ include/
 lib/
 test.py
 bin/
+src/
 src/cqepyutils.egg-info/
+cqepyutils.egg-info/
 
 # ignore virtuvalenv
 venv/*

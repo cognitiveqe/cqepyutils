@@ -8,10 +8,9 @@ class PandasUtils:
     ROBOT_LIBRARY_SCOPE = 'Global'
 
     def __init__(self):
-        self.__doc__ = dict
+        print('test')
 
-    @staticmethod
-    def df_diff(df1: pd.DataFrame, df2: pd.DataFrame, key_columns: list):
+    def df_diff(self, df1: pd.DataFrame, df2: pd.DataFrame, key_columns: list):
         """
         This method is used to find the differences between two data frame
         :param key_columns:
