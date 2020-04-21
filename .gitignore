@@ -3,7 +3,7 @@
 *.pyc
 *.swp
 *.swo
-.idea
+idea/
 
 # ignore robotframework files
 log.html
