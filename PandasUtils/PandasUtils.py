@@ -35,13 +35,13 @@ def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: st
     :param expected_file_name: compare_base_file
     :param file_format: 'psv' or 'csv'
     :param key_columns: unique key columns names as list ['Key_Column1', 'Key_Column2']
-    :param ignore_columns: columns to ignore ['Key_Column1', 'Key_Column2']
+    :param ignore_columns: columns to ignore ['Ignore_Column1', 'Ignore_Column2']
     :return:
     """
-    logging.info('****************************************************************************************************')
-    logging.info('PandasUtil Data Frame Comparison - Cell by Cell comparison with detailed mismatch report')
-    logging.info('****************************************************************************************************')
-    logging.info('Step-1  : Based on file format create the df with delimiter(sep)')
+    logger.info('****************************************************************************************************')
+    logger.info('PandasUtil Data Frame Comparison - Cell by Cell comparison with detailed mismatch report')
+    logger.info('****************************************************************************************************')
+    logger.info('Step-01 : Based on file format create the df with delimiter(sep)')
     if file_format == 'psv':
         df1 = pd.read_csv(actual_file_path + actual_file_name + '.' + file_format, sep='|', dtype='str',
                           keep_default_na =False)
@@ -53,7 +53,7 @@ def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: st
         df2 = pd.read_csv(expected_file_path + expected_file_name + '.' + file_format, dtype='str',
                           keep_default_na =False)
 
-    logger.info('Step-2  : Create the summary df based on count of rows and identify the count diff')
+    logger.info('Step-02 : Create the summary df based on count of rows and identify the count diff')
     # Create the summary df
     summary_col = ['Actual', 'Expected', 'Mismatch']
     summary_df = pd.DataFrame(columns=summary_col)
@@ -61,13 +61,13 @@ def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: st
                                     'Mismatch': round(len(df1)) - round(len(df2))}, ignore_index=True)
     logger.debug(summary_df)
 
-    logger.info('Step-3  : Remove the columns based on ignore columns list')
+    logger.info('Step-03 : Remove the columns based on ignore columns list')
     # If ignore columns are specified, remove those columns from comparison
     if len(ignore_columns) > 0:
         df1.drop(columns=ignore_columns, inplace=True)
         df2.drop(columns=ignore_columns, inplace=True)
 
-    logger.info('Step-4  : Sort the df1 and df2 based on key columns and reset the index')
+    logger.info('Step-04 : Sort the df1 and df2 based on key columns and reset the index')
     # Sort df1 and df2 based on key columns and reset the index
     df1.sort_values(by=key_columns, ascending=True, inplace=True)
     df2.sort_values(by=key_columns, ascending=True, inplace=True)
@@ -80,7 +80,7 @@ def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: st
     df1 = df1.drop('index', axis=1)
     df2 = df2.drop('index', axis=1)
 
-    logger.info('Step-5  : Identify the rows matching based on key in both df1 and df2')
+    logger.info('Step-05 : Identify the rows matching based on key in both df1 and df2')
     # Identify the rows matching based on key in both df1 and df2
     merge_outer_df = pd.merge(df1, df2, how='outer', on=key_columns, indicator='source')
     key_matched_df = merge_outer_df.loc[merge_outer_df['source'] == 'both'].copy()
@@ -89,7 +89,7 @@ def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: st
     # Update the source column left_only to actual and right_only to expected
     # key_mismatched_df.loc[key_mismatched_df['source'] == 'left_only', 'source'] = 'Actual'
 
-    logger.info('Step-6  : Create the summary df based on key columns')
+    logger.info('Step-06 : Create the summary df based on key columns')
     # Create the summary df based on key columns
     summary_key_col = ['Key_Matched', 'Key_Mismatch', 'Actual', 'Expected']
     summary_key_df = pd.DataFrame(columns=summary_key_col)
@@ -102,28 +102,28 @@ def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: st
     logger.debug(summary_key_df)
     logger.debug(key_mismatched_df)
 
-    logger.info('Step-7  : Remove the mismatched key values and proceed further in validation')
+    logger.info('Step-07 : Remove the mismatched key values and proceed further in validation')
     df1.drop(key_mismatched_df.loc[key_mismatched_df['source'] == 'left_only'].index, inplace=True)
     df2.drop(key_mismatched_df.loc[key_mismatched_df['source'] == 'right_only'].index, inplace=True)
 
-    logger.info('Step-8  : Started cell by cell comparison for key values exist in both df1 and df2')
+    logger.info('Step-08 : Started cell by cell comparison for key values that exist in both df1 and df2')
     # Verify if columns in both df1 and df2 are same
-    assert (df1.columns == df2.columns).all(), logging.info('Failed - Column mismatch determined')
+    assert (df1.columns == df2.columns).all(), logger.debug('Failed - Column mismatch determined')
 
-    logger.info('Step-8.1: Verify column data types in both the files, if not convert based on actual')
+    logger.info('Step-09 : Verify column data types in both the files, if not convert based on actual')
     if any(df1.dtypes != df2.dtypes):
-        "Data Types are different, trying to convert"
+        logger.debug('Data Types are different, trying to convert')
         df2 = df2.astype(df1.dtypes)
 
-    logger.info('Step-8.2: cell by cell data in both the data frame and generate mismatch report')
+    logger.info('Step-10 : Verify cell by cell data in both the data frame and generate mismatch report')
     # df to hold cell by cell comparison results
     cell_comp_df = pd.DataFrame([])
 
     # Verify if all the cell data are identical
     if df1.equals(df2):
-        logging.info('Passed : Cell by cell comparison passed')
+        logger.info('          Passed : Cell by Cell comparison')
     else:
-        logging.info('Failed : Cell by cell comparison failed.. Started to extract mismatched column values')
+        logger.info('          Failed : Cell by Cell comparison ..Started to extract mismatched column values')
         # create new data frame with mismatched columns
         diff_mask = (df1 != df2) & ~(df1.isnull() & df2.isnull())
         ne_stacked = diff_mask.stack()
@@ -134,6 +134,6 @@ def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: st
         changed_from = df1.values[difference_locations]
         changed_to = df2.values[difference_locations]
         cell_comp_df = pd.DataFrame({'Expected_Data': changed_from, 'Actual_Data': changed_to}, index=changed.index)
-    logging.info('End      : Comparison completed and generated info for reports(summary, keys mistmach, cell by cell')
-    logging.info('****************************************************************************************************')
+    logger.info('Step-11 : Comparison completed and generated info for reports(summary, keys mistmach, cell by cell')
+    logger.info('****************************************************************************************************')
     return summary_df, summary_key_df, key_mismatched_df, cell_comp_df

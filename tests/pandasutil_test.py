@@ -2,17 +2,18 @@
 # import pandas as pd
 # import time
 # start = time.time()
-# # print(str(time.time()))
-# df5 = pd.read_csv('Path/450000_Sales_Records.csv', dtype='str')
-# keys = ['Region', 'Country', 'Item_Type', 'Sales_Channel', 'Order_Priority', 'Order_Date']
-# df5.set_index(keys, drop=True, append=False, inplace=True, verify_integrity=True)
-#
-# df6 = pd.read_csv('Path/450000_Sales_Records_1.csv', dtype='str')
-# df6.set_index(keys, drop=True, append=False, inplace=True, verify_integrity=True)
-#
-# df_final = cpd.df_diff(df5, df6, keys)
-# # print(len(df_final))
-# # print(df_final.head())
-# df_final.to_csv('Path/comparison_results.csv')
-# # print(str(time.time()))
+# actual_file_path = r'C://Desktop//Comparison//data//actual//'
+# expected_file_path = r'C://Desktop//Comparison//data//baseline//'
+# actual_file_name = 'compare_actual_file'
+# expected_file_name = 'compare_actual_file'
+# file_format = 'psv' or 'csv'
+# key_columns = ['Key_Column1', 'Key_Column2']
+# ignore_columns = ['Ignore_Column1', 'Ignore_Column2']
+# summary_df, summary_key_df, key_mismatche_df, cell_cmp_df = cpd.df_diff(actual_file_path, expected_file_path,
+#                                                                         actual_file_name, expected_file_name,
+#                                                                         file_format, key_columns, ignore_columns)
 # print(str((time.time() - start)))
+# summary_df
+# summary_key_df
+# key_mismatche_df
+# cell_cmp_df
