@@ -1,0 +1,35 @@
+*.*~
+*~
+*.pyc
+*.swp
+*.swo
+.idea/*
+
+# ignore robotframework files
+log.html
+output.xml
+debug.txt
+report.html
+foobar.txt
+
+~*
+htmlcov
+.coverage
+build/
+MANIFEST
+dist/
+include/
+lib/
+test.py
+bin/
+src/
+src/cqepyutils.egg-info/
+cqepyutils.egg-info/
+
+# ignore virtuvalenv
+venv/*
+env/*
+
+# Default ignored files
+/shelf/
+/workspace.xml
