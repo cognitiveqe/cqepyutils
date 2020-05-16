@@ -25,6 +25,28 @@ logger.addHandler(ch)
 # logger.addHandler(fh)
 
 
+def write_df_to_csv(df_to_write: pd.DataFrame, file_path: str, file_name: str):
+    """
+    This method is to write the df to csv file
+    :param df_to_write:
+    :param file_path:
+    :param file_name:
+    :return:
+    """
+    df_to_write.to_csv(path_or_buf=file_path + '/' + file_name, mode='w', index=False)
+
+
+def write_df_to_psv(df_to_write: pd.DataFrame, file_path: str, file_name: str):
+    """
+    This method is to write the df to psv file
+    :param df_to_write:
+    :param file_path:
+    :param file_name:
+    :return:
+    """
+    df_to_write.to_csv(path_or_buf=file_path + '/' + file_name, mode='w', sep='|', index=False)
+
+
 def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: str, expected_file_name: str,
             file_format: str, key_columns: list, ignore_columns: list):
     """
