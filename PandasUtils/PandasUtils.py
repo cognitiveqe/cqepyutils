@@ -25,15 +25,16 @@ logger.addHandler(ch)
 # logger.addHandler(fh)
 
 
-def write_df_to_csv(df_to_write: pd.DataFrame, file_path: str, file_name: str):
+def write_df_to_csv(df_to_write: pd.DataFrame, file_path: str, file_name: str, index: bool = False):
     """
     This method is to write the df to csv file
+    :param index:
     :param df_to_write:
     :param file_path:
     :param file_name:
     :return:
     """
-    df_to_write.to_csv(path_or_buf=file_path + '/' + file_name, mode='w', index=False)
+    df_to_write.to_csv(path_or_buf=file_path + '/' + file_name, mode='w', index=index)
 
 
 def write_df_to_psv(df_to_write: pd.DataFrame, file_path: str, file_name: str):
