@@ -38,5 +38,6 @@ setuptools.setup(
         'requests',
         'robotframework',
         'robotframework-requests',
+        'jinja2',
     ],
 )
