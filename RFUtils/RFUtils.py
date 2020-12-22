@@ -1,4 +1,5 @@
 from robot.api import ExecutionResult, ResultVisitor
+import robot
 import csv
 import pandas as pd
 
@@ -9,12 +10,24 @@ def email_trigger(xml_file, csv_file, html_file):
         def visit_test(self, test):
             wr.writerow([test.name, test.doc, test.status, test.message, test.elapsedtime / float(1000)])
 
+            # if robot.__version__ < 4:
+            #     wr.writerow([test.name, test.doc, test.status, test.message, test.elapsedtime / float(1000)])
+            # else:
+            #     wr.writerow([test.name, test.doc, test.status, test.message, test.elapsedtime / float(1000)])
+
     class SuiteMetrics(ResultVisitor):
 
         def visit_suite(self, suite):
-            stats = result.suite.statistics
-            wr1.writerow(
-                [suite.name, suite.status, stats.total, stats.passed, stats.failed, suite.elapsedtime / float(60000)])
+
+            if robot.__version__ == '4.0b1':
+                stats = result.suite.statistics
+                wr1.writerow(
+                    [suite.name, suite.status, suite.passed + suite.failed, stats.passed, stats.failed, suite.elapsedtime / float(60000)])
+
+            else:
+                stats = result.suite.statistics.all
+                wr1.writerow(
+                    [suite.name, suite.status, stats.total, stats.passed, stats.failed, suite.elapsedtime / float(60000)])
 
     op_f = open(csv_file, 'w')
     wr = csv.writer(op_f)
@@ -74,7 +87,8 @@ def csv_to_html(csv_file, suite_csv, html_file, highlight_column_name):
          ]).set_properties(**{'font-size': '10pt', 'font-family': 'Century Gothic'}).render()
     html1 = html1.replace('<th class="blank level0 ></th>', '<th class="blank level0">S_NO</th>')
 
-    html_content = html1 + "<b>Automation Execution Detailed Summary:</br></br>" + html
+    html_content = "<b>Automation Execution Summary: Test Suite Level</br></br>" + html1 + \
+                   "</br><b>Automation Execution Summary: Test Case Level</br></br>" + html
     with open(html_file, 'w') as f:
         f.write(html_content)
     f.close()
@@ -101,4 +115,3 @@ def highlight_cols_red(val, color='red'):
 
 def left_vals(val):
     return 'text-align: left'
-
