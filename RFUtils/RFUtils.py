@@ -17,7 +17,7 @@ def email_trigger(xml_file, csv_file, html_file):
 
         def visit_suite(self, suite):
 
-            if robot.__version__ == '4.0b3':
+            if robot.__version__ == '4.0rc1':
                 stats = result.suite.statistics
                 wr1.writerow(
                     [suite.name, suite.status, stats.passed + stats.failed, stats.passed, stats.failed,
@@ -91,11 +91,12 @@ def csv_to_html(csv_file, suite_csv, html_file, highlight_column_name):
     html = html.replace('<th class="blank level0" ></th>', '<th class="blank level0">S_NO</th>')
 
     html1 = df1.style.applymap(highlight_cols_red, subset=['TESTCASES_FAILED']). \
-        applymap(highlight_cols_green, subset=['TESTCASES_PASSED']).\
+        applymap(highlight_cols_green, subset=['TESTCASES_PASSED']). \
         applymap(center_vals, subset=['SUITE_STATUS']).\
         applymap(center_vals, subset=['TOTAL_TESTCASES']). \
         applymap(center_vals, subset=['TESTCASES_PASSED']). \
-        applymap(center_vals, subset=['TESTCASES_FAILED']).set_table_styles(
+        applymap(center_vals, subset=['TESTCASES_FAILED']).\
+        applymap(center_vals, subset=['EXECUTION_TIME']).set_table_styles(
         [{'selector': 'tr.hover td', 'props': [('background-color', 'lightyellow')]},
          {'selector': 'th, td', 'props': [('border', '1px solid black'),
                                           ('padding', '4px'), ('text-align', 'left')]},
