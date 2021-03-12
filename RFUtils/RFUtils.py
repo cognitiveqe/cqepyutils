@@ -17,7 +17,7 @@ def email_trigger(xml_file, csv_file, html_file):
 
         def visit_suite(self, suite):
 
-            if robot.__version__ == '4.0rc1':
+            if robot.__version__ == '4.0':
                 stats = result.suite.statistics
                 wr1.writerow(
                     [suite.name, suite.status, stats.passed + stats.failed, stats.passed, stats.failed,
