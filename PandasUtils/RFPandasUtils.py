@@ -1,53 +1,45 @@
 import pandas as pd
 import numpy as np
-import logging
-
-# Define logging
-# Create logger definition
-logger = logging.getLogger('Comparison.log')
-logger.setLevel(logging.DEBUG)
-
-# Create file handler which logs messages in log file
-fh = logging.FileHandler('Comparison.log')
-fh.setLevel(logging.DEBUG)
-
-# Create console handler with high level log messages in console
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-
-# Create formatter and add it to the handlers
-formatter = logging.Formatter('%(message)s')
-fh.setFormatter(formatter)
-ch.setFormatter(formatter)
-
-# Add the handler to the logger
-logger.addHandler(ch)
-# logger.addHandler(fh)
+from robot.api import logger
+from robot.api.deco import keyword
 
 
+@keyword("Write DataFrame to CSV file")
 def write_df_to_csv(df_to_write: pd.DataFrame, file_path: str, file_name: str, index: bool = False):
     """
     This method is to write the df to csv file
-    :param index:
-    :param df_to_write:
-    :param file_path:
-    :param file_name:
-    :return:
+    :param df_to_write: DataFrame to write to CSV file
+    :param file_path: Path where the CSV file needs to be created
+    :param file_name: Name of the CSV file to be created
+    :param index: Whether to include the index in the CSV file
+    :return: None
     """
-    df_to_write.to_csv(path_or_buf=file_path + '/' + file_name, mode='w', index=index)
+    logger.info('Step 1: Writing DataFrame to CSV file...')
+    try:
+        df_to_write.to_csv(path_or_buf=file_path + '/' + file_name, mode='w', index=index)
+        logger.info('Step 2: Writing DataFrame to CSV file completed successfully.')
+    except Exception as e:
+        logger.error(f'Step 2: Writing DataFrame to CSV file failed with error: {e}')
 
 
+@keyword("Write DataFrame to PSV file")
 def write_df_to_psv(df_to_write: pd.DataFrame, file_path: str, file_name: str):
     """
     This method is to write the df to psv file
-    :param df_to_write:
-    :param file_path:
-    :param file_name:
-    :return:
+    :param df_to_write: DataFrame to write to PSV file
+    :param file_path: Path where the PSV file needs to be created
+    :param file_name: Name of the PSV file to be created
+    :return: None
     """
-    df_to_write.to_csv(path_or_buf=file_path + '/' + file_name, mode='w', sep='|', index=False)
+    logger.info('Step 1: Writing DataFrame to PSV file...')
+    try:
+        df_to_write.to_csv(path_or_buf=file_path + '/' + file_name, mode='w', sep='|', index=False)
+        logger.info('Step 2: Writing DataFrame to PSV file completed successfully.')
+    except Exception as e:
+        logger.error(f'Step 2: Writing DataFrame to PSV file failed with error: {e}')
 
 
+@keyword("Compare two DataFrames and show differences")
 def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: str, expected_file_name: str,
             file_format: str, key_columns: list, ignore_columns: list):
     """
@@ -56,7 +48,7 @@ def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: st
     :param expected_file_path: r'C://Desktop//Comparison//data//baseline//'
     :param actual_file_name: compare_actual_file
     :param expected_file_name: compare_base_file
-    :param file_format: 'psv' or 'csv'
+    :param file_format: 'psv' or 'csv' or 'DAT'
     :param key_columns: unique key columns names as list ['Key_Column1', 'Key_Column2']
     :param ignore_columns: columns to ignore ['Ignore_Column1', 'Ignore_Column2']
     :return:
@@ -67,7 +59,6 @@ def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: st
     logger.info('Step-01 : Based on file format create the data frames with delimiter(sep)')
     df1 = pd.DataFrame()
     df2 = pd.DataFrame()
-
     if file_format == 'psv':
         df1 = pd.read_csv(expected_file_path + expected_file_name + '.' + file_format, sep='|', dtype='str',
                           keep_default_na=False)
@@ -200,3 +191,30 @@ def df_diff(actual_file_path: str, expected_file_path: str, actual_file_name: st
     logger.info('Step-12 : Comparison completed and generated info for reports(summary, keys mismatch, cell by cell')
     logger.info('****************************************************************************************************')
     return exec_summary_df, dup_cons_df, key_matched_df, key_mismatched_df, cell_comp_df
+
+
+#
+# *** Test Cases ***
+# Test Write DataFrame to CSV file
+#     ${df}=  Create Dataframe  1,2,3\n4,5,6\n7,8,9
+#     Write DataFrame to CSV file  ${df}  ./  test.csv
+#     ${written_df}=  Read CSV  ./test.csv
+#     Should Be True  ${df}.equals(${written_df})
+#
+# Test Write DataFrame to PSV file
+#     ${df}=  Create Dataframe  1,2,3\n4,5,6\n7,8,9
+#     Write DataFrame to PSV file  ${df}  ./  test.psv
+#     ${written_df}=  Read CSV  ./test.psv  delimiter=|
+#     Should Be True  ${df}.equals(${written_df})
+#
+# Test Compare two DataFrames and show differences
+#     ${actual_file_path}=  Set Variable  ./test_data/
+#     ${expected_file_path}=  Set Variable  ./baseline_data/
+#     ${actual_file_name}=  Set Variable  actual_file
+#     ${expected_file_name}=  Set Variable  expected_file
+#     ${file_format}=  Set Variable  csv
+#     ${key_columns}=  Create List  Key_Column1  Key_Column2
+#     ${ignore_columns}=  Create List  Ignore_Column1  Ignore_Column2
+#     ${expected_df}=  Read CSV  ${expected_file_path}${expected_file_name}.${file_format}
+#     ${actual_df}=  Read CSV  ${actual_file_path}${actual_file_name}.${file_format}
+#     Compare two DataFrames and show differences  ${actual_file_path}  ${expected_file_path}  ${actual_file_name}  ${expected_file_name}  ${file_format}  ${key_columns}  ${ignore_columns}
