@@ -29,3 +29,32 @@
 #                                                                         actual_file_name, expected_file_name,
 #                                                                         file_format, key_columns, ignore_columns)
 # print(str((time.time() - start)))
+
+# # Example usage
+# import logging.config
+#
+# # Configure the logger
+# logging.config.dictConfig({
+#     'version': 1,
+#     'handlers': {
+#         'console': {
+#             'class': 'logging.StreamHandler',
+#             'level': 'INFO'
+#         }
+#     },
+#     'root': {
+#         'handlers': ['console'],
+#         'level': 'INFO'
+#     }
+# })
+#
+# # Fetch the query from a file
+# file_path = "path/to/query.sql"
+# query = fetch_query(file_path)
+#
+# # Execute the query
+# connection_details = "hr/hrpwd@localhost:1521/orclpdb1"
+# df = execute_query(query, connection_details)
+#
+# # Display the query results
+# print(df.head())

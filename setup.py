@@ -34,10 +34,27 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         'pandas',
+        'xlsxwriter',
+        'matplotlib',
         'numpy',
         'requests',
         'robotframework',
         'robotframework-requests',
         'jinja2',
+        'pyyaml',
+        'sqlalchemy',
     ],
 )
+
+# 'logging',
+
+# 'dask',
+# 'base64',
+# 'display',
+# 'difflib',
+# 'time',
+# 'os',
+# 'filecmp',
+# 'fileinput',
+# 'operator',
+# 'create_engine',
