@@ -400,7 +400,7 @@ List[Tuple[str, str]]]:
             src_size = os.path.getsize(src_path)
             tgt_size = os.path.getsize(tgt_path)
 
-            result = filecmp.cmpfiles(src_path, tgt_path, shallow=False)
+            result = filecmp.cmpfiles(src_path, tgt_path, common_files, shallow=False)
             if result[0]:
                 match.append((file, src_size, tgt_size))
             else:
@@ -494,53 +494,155 @@ def create_comparison_df(match: List[Tuple[str, int, int]],
 
     Returns:
         pd.DataFrame: A DataFrame containing the comparison results, including file name, status, comments, and size in both directories.
+
+    Examples:
+    | ${match} = | [('file1.txt', 10, 10), ('file2.txt', 20, 20)] |
+    | ${mismatch} = | [('file3.txt', 30, 40, 25.0), ('file4.txt', 50, 60, 16.67)] |
+    | ${errors} = | [('file5.txt', 'Permission denied'), ('file6.txt', 'File not found')] |
+    | ${only_in_src} = | ['file7.txt', 'file8.txt'] |
+    | ${only_in_tgt} = | ['file9.txt', 'file10.txt'] |
+    | ${df} = | Create Comparison Dataframe | ${match} | ${mismatch} | ${errors} | ${only_in_src} | ${only_in_tgt} | /path/to/src | /path/to/tgt |
+    | Should Be Equal | ${df['FileName'][0]} | file1.txt |
+    | Should Be Equal | ${df['Is_Common_File'][0]} | True |
+    | Should Be Equal | ${df['Src_Size'][0]} | 10 |
+    | Should Be Equal | ${df['Tgt_Size'][0]} | 10 |
+    | Should Be Equal | ${df['Diff_Percentage'][0]} | 0.0 |
+    | Should Be Equal | ${df['Comments'][0]} | |
     """
+
     logger.info(f"Step 4: Create comparison DataFrame")
     data = []
 
     # Add matching files
     for file, src_size, tgt_size in match:
         data.append({"FileName": file,
-                     "Status": "MATCH",
-                     "Comments": "",
+                     "Is_Common_File": True,
                      "Src_Size": src_size,
-                     "Tgt_Size": tgt_size})
+                     "Tgt_Size": tgt_size,
+                     "Diff_Percentage": 0.0,
+                     "Comments": ""})
 
     # Add mismatching files
     for file, src_size, tgt_size, diff_percentage in mismatch:
         data.append({"FileName": file,
-                     "Status": "MISMATCH",
-                     "Comments": f"Percentage Difference: {diff_percentage:.2f}%",
+                     "Is_Common_File": True,
                      "Src_Size": src_size,
-                     "Tgt_Size": tgt_size})
+                     "Tgt_Size": tgt_size,
+                     "Diff_Percentage": diff_percentage,
+                     "Comments": f"Percentage Difference: {diff_percentage:.2f}%"})
 
     # Add files with errors
     for file, error in errors:
         data.append({"FileName": file,
-                     "Status": "ERROR",
-                     "Comments": error,
+                     "Is_Common_File": "",
                      "Src_Size": "",
-                     "Tgt_Size": ""})
+                     "Tgt_Size": "",
+                     "Diff_Percentage": "",
+                     "Comments": error})
 
     # Add files only in source directory
     for file in only_in_src:
         data.append({"FileName": file,
-                     "Status": "ONLY IN SRC",
-                     "Comments": "",
+                     "Is_Common_File": "",
                      "Src_Size": os.path.getsize(os.path.join(src_dir, file)),
-                     "Tgt_Size": ""})
+                     "Tgt_Size": "",
+                     "Diff_Percentage": "",
+                     "Comments": ""})
 
     # Add files only in target directory
     for file in only_in_tgt:
         data.append({"FileName": file,
-                     "Status": "ONLY IN TGT",
-                     "Comments": "",
+                     "Is_Common_File": "",
                      "Src_Size": "",
-                     "Tgt_Size": os.path.getsize(os.path.join(tgt_dir, file))})
+                     "Tgt_Size": os.path.getsize(os.path.join(tgt_dir, file)),
+                     "Diff_Percentage": "",
+                     "Comments": ""})
 
     df = pd.concat([pd.DataFrame([d]) for d in data], ignore_index=True)
 
+    # Rearrange columns
+    df = df[['FileName', 'Is_Common_File', 'Src_Size', 'Tgt_Size', 'Diff_Percentage', 'Comments']]
+
     return df
+
+
+# @keyword("Create Comparison Dataframe")
+# def create_comparison_df(match: List[Tuple[str, int, int]],
+#                          mismatch: List[Tuple[str, int, int, float]],
+#                          errors: List[Tuple[str, str]],
+#                          only_in_src: List[str],
+#                          only_in_tgt: List[str],
+#                          src_dir: str,
+#                          tgt_dir: str) -> pd.DataFrame:
+#     """
+#     Creates a DataFrame containing the comparison results.
+#
+#     Args:
+#         match (List[Tuple[str, int, int]]): A list of matching files and their sizes.
+#         mismatch (List[Tuple[str, int, int, float]]): A list of mismatching files, their sizes, and the percentage difference.
+#         errors (List[Tuple[str, str]]): A list of files with errors and the error message.
+#         only_in_src (List[str]): A list of files only in the source directory.
+#         only_in_tgt (List[str]): A list of files only in the target directory.
+#         src_dir (str): Path to the source directory.
+#         tgt_dir (str): Path to the target directory.
+#
+#     Returns:
+#         pd.DataFrame: A DataFrame containing the comparison results, including file name, status, comments, size in both directories, and the percentage difference (for mismatching files).
+#     """
+#     logger.info(f"Step 4: Create comparison DataFrame")
+#     data = []
+#
+#     # Add matching files
+#     for file, src_size, tgt_size in match:
+#         data.append({"FileName": file,
+#                      "Status": "MATCH",
+#                      "Comments": "",
+#                      "Src_Size": src_size,
+#                      "Tgt_Size": tgt_size,
+#                      "Diff (%)": ""})
+#
+#     # Add mismatching files
+#     for file, src_size, tgt_size, diff_percentage in mismatch:
+#         data.append({"FileName": file,
+#                      "Status": "MISMATCH",
+#                      "Comments": f"Percentage Difference: {diff_percentage:.2f}%",
+#                      "Src_Size": src_size,
+#                      "Tgt_Size": tgt_size,
+#                      "Diff (%)": diff_percentage})
+#
+#     # Add files with errors
+#     for file, error in errors:
+#         data.append({"FileName": file,
+#                      "Status": "ERROR",
+#                      "Comments": error,
+#                      "Src_Size": "",
+#                      "Tgt_Size": "",
+#                      "Diff (%)": ""})
+#
+#     # Add files only in source directory
+#     for file in only_in_src:
+#         data.append({"FileName": file,
+#                      "Status": "Missing in Source",
+#                      "Comments": "",
+#                      "Src_Size": os.path.getsize(os.path.join(src_dir, file)),
+#                      "Tgt_Size": "",
+#                      "Diff (%)": ""})
+#
+#     # Add files only in target directory
+#     for file in only_in_tgt:
+#         data.append({"FileName": file,
+#                      "Status": "Missing in Target",
+#                      "Comments": "",
+#                      "Src_Size": "",
+#                      "Tgt_Size": os.path.getsize(os.path.join(tgt_dir, file)),
+#                      "Diff (%)": ""})
+#
+#     df = pd.concat([pd.DataFrame([d]) for d in data], ignore_index=True)
+#
+#     # Reorder columns
+#     df = df[["FileName", "Is_Common_File", "Src_Size", "Tgt_Size", "Diff_Percentage", "Comments"]]
+#
+#     return df
 
 
 # *** Settings ***
