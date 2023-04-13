@@ -121,8 +121,8 @@ def write_df_to_psv(df_to_write: pd.DataFrame, file_path: str, file_name: str):
 
 
 @keyword("Compare two DataFrames and show differences")
-def df_diff(actual_file_path_name: str, expected_file_path_name: str, key_columns: list = None,
-            ignore_columns: list = None):
+def df_diff10(actual_file_path_name: str, expected_file_path_name: str, key_columns: list = None,
+              ignore_columns: list = None):
     """
     This method is used to find the differences between two data frame
     :param actual_file_path_name: r'C://Desktop//Comparison//data//actual//'
@@ -303,6 +303,347 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, key_column
     return exec_summary_df, dup_cons_df, key_matched_df, key_mismatched_df, cell_comp_df
 
 
+# ************************
+
+# import os
+# import filecmp
+# import logging
+# import pandas as pd
+# from robot.api.deco import keyword
+
+
+@keyword('Compare all files in source and target directories')
+def files_diff11(dir1, dir2):
+    """
+    Compare files in two directories and return a DataFrame with the file comparison information.
+
+    Args:
+        dir1 (str): Path to the first directory.
+        dir2 (str): Path to the second directory.
+
+    Examples:
+    | ${dataframe}= | files_diff | /path/to/dir1 | /path/to/dir2 |
+    """
+
+    # Log step 1
+    logger.info("Step 1: Getting list of files in directories...")
+
+    # Get a list of all files in dir1 and dir2
+    files1 = [f for f in os.listdir(dir1) if os.path.isfile(os.path.join(dir1, f))]
+    files2 = [f for f in os.listdir(dir2) if os.path.isfile(os.path.join(dir2, f))]
+
+    # Get a list of files that exist in both directories
+    common_files = set(files1) & set(files2)
+
+    if not common_files:
+        logger.info("No files exist in both directories for comparison")
+        return pd.DataFrame()
+
+    # Log step 2
+    logger.info("Step 2: Comparing files in directories...")
+
+    # Use cmpfiles to compare files in dir1 and dir2
+    match, mismatch, errors = filecmp.cmpfiles(dir1, dir2, list(common_files))
+
+    # Log step 3
+    logger.info("Step 3: Creating DataFrame...")
+
+    # Create a DataFrame with the comparison information
+    data = {'Filename': list(common_files),
+            'Source': [f in files1 for f in common_files],
+            'Target': [f in files2 for f in common_files],
+            'Match': [f in match for f in common_files],
+            'Mismatch': [f in mismatch for f in common_files],
+            'Error': [f in errors for f in common_files],
+            'File Size Match': [os.path.getsize(os.path.join(dir1, f)) == os.path.getsize(os.path.join(dir2, f)) for f
+                                in common_files],
+            'Status': [],
+            'Comments': []}
+    df = pd.DataFrame(data)
+
+    # Update Status and Comments based on other columns
+    for i in range(len(df)):
+        if df.loc[i, 'Error']:
+            df.loc[i, 'Status'] = 'Error'
+            df.loc[i, 'Comments'] = 'Comparison resulted in an error'
+        elif df.loc[i, 'Mismatch']:
+            df.loc[i, 'Status'] = 'Mismatch'
+            df.loc[i, 'Comments'] = 'Files do not match'
+        elif not df.loc[i, 'Source']:
+            df.loc[i, 'Status'] = 'Missing in source'
+            df.loc[i, 'Comments'] = 'File is missing in source directory'
+        elif not df.loc[i, 'Target']:
+            df.loc[i, 'Status'] = 'Missing in target'
+            df.loc[i, 'Comments'] = 'File is missing in target directory'
+        elif not df.loc[i, 'File Size Match']:
+            df.loc[i, 'Status'] = 'File size mismatch'
+            df.loc[i, 'Comments'] = 'File sizes do not match'
+        else:
+            df.loc[i, 'Status'] = 'Match'
+            df.loc[i, 'Comments'] = 'File sizes match'
+
+    # Return the DataFrame
+    return df
+
+
+# **************************
+
+
+# import os
+# import filecmp
+# import pandas as pd
+# from robot.api import logger
+#
+
+def files_diff1(src_dir: str, tgt_dir: str) -> pd.DataFrame:
+    common_files = []
+    match = []
+    mismatch = []
+    errors = []
+    for file in os.listdir(src_dir):
+        if file in os.listdir(tgt_dir):
+            common_files.append(file)
+
+    for file in common_files:
+        try:
+            src_path = os.path.join(src_dir, file)
+            tgt_path = os.path.join(tgt_dir, file)
+
+            src_size = os.path.getsize(src_path)
+            tgt_size = os.path.getsize(tgt_path)
+
+            if filecmp.cmp(src_path, tgt_path, shallow=False):
+                match.append((file, src_size, tgt_size))
+            else:
+                mismatch.append((file, src_size, tgt_size))
+        except Exception as e:
+            errors.append((file, str(e)))
+
+    only_in_src = []
+    for file in os.listdir(src_dir):
+        if file not in common_files:
+            only_in_src.append((file, os.path.getsize(os.path.join(src_dir, file))))
+
+    only_in_tgt = []
+    for file in os.listdir(tgt_dir):
+        if file not in common_files:
+            only_in_tgt.append((file, os.path.getsize(os.path.join(tgt_dir, file))))
+
+    df_list = []
+    for file, src_size, tgt_size in match:
+        df_list.append(pd.DataFrame({'File': [file], 'Status': ['Match'], 'Comments': [''], 'Size (Source)': [src_size],
+                                     'Size (Target)': [tgt_size]}))
+    for file, src_size, tgt_size in mismatch:
+        comments = f'Size differs ({src_size - tgt_size})' if src_size != tgt_size else 'Contents differ'
+        df_list.append(pd.DataFrame(
+            {'File': [file], 'Status': ['Mismatch'], 'Comments': [comments], 'Size (Source)': [src_size],
+             'Size (Target)': [tgt_size]}))
+    for file, error in errors:
+        df_list.append(pd.DataFrame(
+            {'File': [file], 'Status': ['Error'], 'Comments': [str(error)], 'Size (Source)': [''],
+             'Size (Target)': ['']}))
+    for file, size in only_in_src:
+        df_list.append(pd.DataFrame(
+            {'File': [file], 'Status': ['Not Found'], 'Comments': [f'File not found in {tgt_dir}/{src_dir}'],
+             'Size (Source)': [size], 'Size (Target)': ['']}))
+    for file, size in only_in_tgt:
+        df_list.append(pd.DataFrame(
+            {'File': [file], 'Status': ['Not Found'], 'Comments': [f'File not found in {src_dir}/{tgt_dir}'],
+             'Size (Source)': [''], 'Size (Target)': [size]}))
+
+    df = pd.concat(df_list, ignore_index=True)
+    logger.info(f"Created DataFrame with {len(df)} rows")
+    return df
+
+
+# *****************
+# import os
+# import filecmp
+# import pandas as pd
+# from robot.api import logger
+
+
+@keyword("Create DataFrame with differences between two directories")
+def files_diff3(src_dir: str, tgt_dir: str) -> pd.DataFrame:
+    logger.info(f"Step 1: Comparing files in {src_dir} and {tgt_dir}")
+    common_files = []
+    match = []
+    mismatch = []
+    errors = []
+    for file in os.listdir(src_dir):
+        if file in os.listdir(tgt_dir):
+            common_files.append(file)
+
+    logger.info(f"Step 2: Comparing files in {src_dir} and {tgt_dir}")
+    for file in common_files:
+        try:
+            src_path = os.path.join(src_dir, file)
+            tgt_path = os.path.join(tgt_dir, file)
+
+            src_size = os.path.getsize(src_path)
+            tgt_size = os.path.getsize(tgt_path)
+
+            if filecmp.cmp(src_path, tgt_path, shallow=False):
+                match.append((file, src_size, tgt_size))
+            else:
+                mismatch.append((file, src_size, tgt_size))
+        except Exception as e:
+            errors.append((file, str(e)))
+
+    logger.info(f"Step 3: Finding files only in {src_dir}")
+    only_in_src = []
+    for file in os.listdir(src_dir):
+        if file not in common_files:
+            only_in_src.append((file, os.path.getsize(os.path.join(src_dir, file))))
+
+    logger.info(f"Step 4: Finding files only in {tgt_dir}")
+    only_in_tgt = []
+    for file in os.listdir(tgt_dir):
+        if file not in common_files:
+            only_in_tgt.append((file, os.path.getsize(os.path.join(tgt_dir, file))))
+
+    logger.info(f"Step 5: Creating DataFrame with differences")
+    df_list = []
+    for file, src_size, tgt_size in match:
+        df_list.append(pd.DataFrame({'File': [file], 'Status': ['Match'], 'Comments': [''], 'Size (Source)': [src_size],
+                                     'Size (Target)': [tgt_size]}))
+    for file, src_size, tgt_size in mismatch:
+        comments = f'Size differs ({src_size - tgt_size})' if src_size != tgt_size else 'Contents differ'
+        df_list.append(pd.DataFrame(
+            {'File': [file], 'Status': ['Mismatch'], 'Comments': [comments], 'Size (Source)': [src_size],
+             'Size (Target)': [tgt_size]}))
+    for file, error in errors:
+        df_list.append(pd.DataFrame(
+            {'File': [file], 'Status': ['Error'], 'Comments': [str(error)], 'Size (Source)': [''],
+             'Size (Target)': ['']}))
+    for file, size in only_in_src:
+        df_list.append(pd.DataFrame(
+            {'File': [file], 'Status': ['Not Found'], 'Comments': [f'File not found in {tgt_dir}/{src_dir}'],
+             'Size (Source)': [size], 'Size (Target)': ['']}))
+    for file, size in only_in_tgt:
+        df_list.append(pd.DataFrame(
+            {'File': [file], 'Status': ['Not Found'], 'Comments': [f'File not found in {src_dir}/{tgt_dir}'],
+             'Size (Source)': [''], 'Size (Target)': [size]}))
+
+    df = pd.concat(df_list, ignore_index=True)
+    logger.info(f"Step 6: Created DataFrame with {len(df)} rows")
+    return df
+
+
+# import os
+# import filecmp
+# import pandas as pd
+# import difflib
+# from robot.api import logger
+
+
+# import filecmp
+# import os
+# import difflib
+# import pandas as pd
+# from robot.api.deco import keyword
+# import logging
+#
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
+
+# @keyword('Compare all files in source and target directories')
+# def files_diff(src_dir: str, tgt_dir: str) -> pd.DataFrame:
+#     """
+#     Compares all files in the source and target directories and returns a DataFrame with the comparison results.
+#
+#     Args:
+#         src_dir (str): The source directory to compare.
+#         tgt_dir (str): The target directory to compare.
+#
+#     Returns:
+#         pd.DataFrame: A DataFrame containing the comparison results, including file name, status, comments, and size in both directories.
+#     """
+#     logger.info(f"Step 1: Log the comparison directories")
+#     logger.info(f"Comparing files in {src_dir} and {tgt_dir}")
+#
+#     common_files = []
+#     match = []
+#     mismatch = []
+#     errors = []
+#
+#     logger.info(f"Step 2: Find common files in source and target directories")
+#     for file in os.listdir(src_dir):
+#         if file in os.listdir(tgt_dir):
+#             common_files.append(file)
+#
+#     logger.info(f"Step 3: Compare each common file")
+#     for file in common_files:
+#         try:
+#             src_path = os.path.join(src_dir, file)
+#             tgt_path = os.path.join(tgt_dir, file)
+#
+#             src_size = os.path.getsize(src_path)
+#             tgt_size = os.path.getsize(tgt_path)
+#
+#             logger.info(f"Step 4: Check if files are identical")
+#             if filecmp.cmp(src_path, tgt_path, shallow=False):
+#                 match.append((file, src_size, tgt_size))
+#             else:
+#                 logger.info(f"Step 5: Compare file contents using difflib")
+#                 src_file = open(src_path).readlines()
+#                 tgt_file = open(tgt_path).readlines()
+#                 sm = difflib.SequenceMatcher(None, src_file, tgt_file)
+#                 diff_percentage = round(100 - sm.ratio()*100, 2)
+#                 mismatch.append((file, src_size, tgt_size, diff_percentage))
+#         except Exception as e:
+#             logger.info(f"Step 6: Handle exceptions and errors")
+#             errors.append((file, str(e)))
+#
+#     logger.info(f"Step 7: Find files that only exist in the source directory")
+#     only_in_src = []
+#     for file in os.listdir(src_dir):
+#         if file not in common_files:
+#             only_in_src.append((file, os.path.getsize(os.path.join(src_dir, file))))
+#
+#     logger.info(f"Step 8: Find files that only exist in the target directory")
+#     only_in_tgt = []
+#     for file in os.listdir(tgt_dir):
+#         if file not in common_files:
+#             only_in_tgt.append((file, os.path.getsize(os.path.join(tgt_dir, file))))
+#
+#     logger.info(f"Step 9: Create a list of DataFrames to concatenate")
+#     df_list = []
+#     for file, src_size, tgt_size, diff_percentage in mismatch:
+#         comments = f'Contents differ (diff % = {diff_percentage})'
+#         df_list.append(pd.DataFrame(
+#             {'File': [file], 'Status': ['Mismatch'], 'Comments': [comments], 'Size (Source)': [src_size],
+#              'Size (Target)': [tgt_size]}))
+#     for file, src_size, tgt_size in match:
+#         df_list.append(pd.DataFrame({'File': [file], 'Status': ['Match'], 'Comments': [''], 'Size (Source)': [src_size],
+#                                      'Size (Target)': [tgt_size]}))
+#     for file, error in errors:
+#         df_list.append(pd.DataFrame(
+#             {'File': [file], 'Status': ['Error'], 'Comments': [str(error)], 'Size (Source)': [''],
+#              'Size (Target)': ['']}))
+#     for file, size in only_in_src:
+#         df_list.append(pd.DataFrame(
+#             {'File': [file], 'Status': ['Not Found'], 'Comments': [f'File not found in {tgt_dir}/{src_dir}'],
+#              'Size (Source)': [size], 'Size (Target)': ['']}))
+#     for file, size in only_in_tgt:
+#         df_list.append(pd.DataFrame(
+#             {'File': [file], 'Status': ['Not Found'], 'Comments': [f'File not found in {src_dir}/{tgt_dir}'],
+#              'Size (Source)': [''], 'Size (Target)': [size]}))
+#
+#     df = pd.concat(df_list, ignore_index=True)
+#     df['Diff Percentage'] = df['Comments'].apply(lambda x: x.split('=')[1].strip() if 'diff % =' in x else '')
+#     logger.info(f"Step 10: Created File Comparison Report - {len(df)} Files")
+#     return df
+
+# from typing import List, Tuple
+# import pandas as pd
+#
+# from robot.api.deco import keyword
+# from robot.utils import asserts
+#
+# from .utils import (find_common_files, find_files_only_in_dir,
+#                     compare_files, create_comparison_df)
+
 @keyword('Compare all files in source and target directories')
 def files_diff(src_dir: str, tgt_dir: str) -> pd.DataFrame:
     """
@@ -330,7 +671,7 @@ def files_diff(src_dir: str, tgt_dir: str) -> pd.DataFrame:
 
     only_in_tgt = find_files_only_in_dir(tgt_dir, common_files)
 
-    df = create_comparison_df(match, mismatch, errors, only_in_src, only_in_tgt, src_dir, tgt_dir)
+    df = create_comparison_df(match, mismatch, errors, only_in_src, only_in_tgt)
 
     logger.info(f"Step 10: Created File Comparison Report - {len(df)} Files")
     return df
@@ -361,56 +702,6 @@ def find_common_files(src_dir: str, tgt_dir: str) -> List[str]:
         if file in os.listdir(tgt_dir):
             common_files.append(file)
     return common_files
-
-
-def compare_files(src_dir: str, tgt_dir: str, common_files: List[str]) -> Tuple[List[Tuple[str, int, int]],
-List[Tuple[str, int, int, float]],
-List[Tuple[str, str]]]:
-    """
-    Compares each common file in the source and target directories.
-
-    Examples:
-    | ${src_dir} | Set Variable | /path/to/source |
-    | ${tgt_dir} | Set Variable | /path/to/target |
-    | @{common_files} | Create List | file1.txt | file2.txt |
-    | ${match_files} | ${mismatch_files} | ${error_files} | Compare Files | ${src_dir} | ${tgt_dir} | @{common_files} |
-    | Log List | ${match_files} |
-    | Log List | ${mismatch_files} |
-    | Log List | ${error_files} |
-
-    Args:
-        src_dir (str): The source directory to compare.
-        tgt_dir (str): The target directory to compare.
-        common_files (List[str]): A list of common files in both directories.
-
-    Returns:
-        Tuple[List[Tuple[str, int, int]], List[Tuple[str, int, int, float]], List[Tuple[str, str]]]:
-        A tuple containing lists of matching files, mismatching files with percentage difference, and files with errors.
-    """
-    match = []
-    mismatch = []
-    errors = []
-
-    logger.info(f"Step 3: Compare each common file")
-    for file in common_files:
-        try:
-            src_path = os.path.join(src_dir, file)
-            tgt_path = os.path.join(tgt_dir, file)
-
-            src_size = os.path.getsize(src_path)
-            tgt_size = os.path.getsize(tgt_path)
-
-            result = filecmp.cmpfiles(src_path, tgt_path, shallow=False)
-            if result[0]:
-                match.append((file, src_size, tgt_size))
-            else:
-                diff_percentage = compare_file_contents(src_path, tgt_path)
-                mismatch.append((file, src_size, tgt_size, diff_percentage))
-        except Exception as e:
-            errors.append((file, str(e)))
-
-    return match, mismatch, errors
-
 
 def compare_file_contents(src_path: str, tgt_path: str) -> float:
     """
@@ -471,15 +762,143 @@ def find_files_only_in_dir(directory: str, common_files: List[str]) -> List[str]
             only_in_dir.append(file)
     return only_in_dir
 
+#
+# @keyword('Compare all files in source and target directories')
+# def files_diff(src_dir: str, tgt_dir: str) -> pd.DataFrame:
+#     """
+#     Compares all files in the source and target directories and returns a DataFrame with the comparison results.
+#
+#     Args:
+#         src_dir (str): The source directory to compare.
+#         tgt_dir (str): The target directory to compare.
+#
+#     Returns:
+#         pd.DataFrame: A DataFrame containing the comparison results, including file name, status, comments, and size in both directories.
+#     """
+#     logger.info(f"Step 1: Log the comparison directories")
+#     logger.info(f"Comparing files in {src_dir} and {tgt_dir}")
+#
+#     common_files = find_common_files(src_dir, tgt_dir)
+#
+#     match, mismatch, errors = compare_files(src_dir, tgt_dir, common_files)
+#
+#     only_in_src = find_files_only_in_dir(src_dir, common_files)
+#
+#     only_in_tgt = find_files_only_in_dir(tgt_dir, common_files)
+#
+#     df = create_comparison_df(match, mismatch, errors, only_in_src, only_in_tgt)
+#
+#     logger.info(f"Step 10: Created File Comparison Report - {len(df)} Files")
+#     return df
 
-@keyword("Create Comparison Dataframe")
+#
+# def find_common_files(src_dir: str, tgt_dir: str) -> List[str]:
+#     """
+#     Finds common files in the source and target directories.
+#
+#     Args:
+#         src_dir (str): The source directory to compare.
+#         tgt_dir (str): The target directory to compare.
+#
+#     Returns:
+#         List[str]: A list of common files in both directories.
+#     """
+#     logger.info(f"Step 2: Find common files in source and target directories")
+#     common_files = []
+#     for file in os.listdir(src_dir):
+#         if file in os.listdir(tgt_dir):
+#             common_files.append(file)
+#     return common_files
+
+
+def compare_files(src_dir: str, tgt_dir: str, common_files: List[str]) -> Tuple[List[Tuple[str, int, int]],
+List[Tuple[str, int, int, float]],
+List[Tuple[str, str]]]:
+    """
+    Compares each common file in the source and target directories.
+
+    Args:
+        src_dir (str): The source directory to compare.
+        tgt_dir (str): The target directory to compare.
+        common_files (List[str]): A list of common files in both directories.
+
+    Returns:
+        Tuple[List[Tuple[str, int, int]], List[Tuple[str, int, int, float]], List[Tuple[str, str]]]: A tuple containing lists of matching files, mismatching files with percentage difference, and files with errors.
+    """
+    match = []
+    mismatch = []
+    errors = []
+
+    logger.info(f"Step 3: Compare each common file")
+    for file in common_files:
+        try:
+            src_path = os.path.join(src_dir, file)
+            tgt_path = os.path.join(tgt_dir, file)
+
+            src_size = os.path.getsize(src_path)
+            tgt_size = os.path.getsize(tgt_path)
+
+            result = filecmp.cmpfiles(src_path, tgt_path, shallow=False)
+            if result[0]:
+                match.append((file, src_size, tgt_size))
+            else:
+                diff_percentage = compare_file_contents(src_path, tgt_path)
+                mismatch.append((file, src_size, tgt_size, diff_percentage))
+        except Exception as e:
+            errors.append((file, str(e)))
+
+    return match, mismatch, errors
+
+
+
+
+
+# def compare_file_contents(src_path: str, tgt_path: str) -> float:
+#     """
+#     Compares file contents using difflib and returns the percentage difference.
+#
+#     Args:
+#         src_path (str): The source file path to compare.
+#         tgt_path (str): The target file path to compare.
+#
+#     Returns:
+#         float: The percentage difference between the two files.
+#     """
+#     logger.info(f"Step 4: Compare file contents for {src_path} and {tgt_path}")
+#     with open(src_path, 'r') as f1, open(tgt_path, 'r') as f2:
+#         src_lines = f1.readlines()
+#         tgt_lines = f2.readlines()
+#
+#     matcher = difflib.SequenceMatcher(None, src_lines, tgt_lines)
+#     diff_percentage = 100.0 - matcher.ratio() * 100.0
+#
+#     return round(diff_percentage, 2)
+
+
+# def find_files_only_in_dir(directory: str, common_files: List[str]) -> List[str]:
+#     """
+#     Finds files that exist only in a directory and not in the common files list.
+#
+#     Args:
+#         directory (str): The directory to search.
+#         common_files (List[str]): A list of common files.
+#
+#     Returns:
+#         List[str]: A list of files that exist only in the directory.
+#     """
+#     logger.info(f"Step 4: Find files that exist only in {directory}")
+#     only_in_dir = []
+#     for file in os.listdir(directory):
+#         if file not in common_files:
+#             only_in_dir.append(file)
+#     return only_in_dir
+
+
 def create_comparison_df(match: List[Tuple[str, int, int]],
                          mismatch: List[Tuple[str, int, int, float]],
                          errors: List[Tuple[str, str]],
                          only_in_src: List[str],
-                         only_in_tgt: List[str],
-                         src_dir: str,
-                         tgt_dir: str) -> pd.DataFrame:
+                         only_in_tgt: List[str]) -> pd.DataFrame:
     """
     Creates a DataFrame containing the comparison results.
 
@@ -489,59 +908,54 @@ def create_comparison_df(match: List[Tuple[str, int, int]],
         errors (List[Tuple[str, str]]): A list of files with errors and the error message.
         only_in_src (List[str]): A list of files only in the source directory.
         only_in_tgt (List[str]): A list of files only in the target directory.
-        src_dir (str): Path to the source directory.
-        tgt_dir (str): Path to the target directory.
 
     Returns:
         pd.DataFrame: A DataFrame containing the comparison results, including file name, status, comments, and size in both directories.
     """
     logger.info(f"Step 4: Create comparison DataFrame")
-    data = []
+    df = pd.DataFrame(columns=["FileName", "Status", "Comments", "Src_Size", "Tgt_Size"])
 
     # Add matching files
     for file, src_size, tgt_size in match:
-        data.append({"FileName": file,
-                     "Status": "MATCH",
-                     "Comments": "",
-                     "Src_Size": src_size,
-                     "Tgt_Size": tgt_size})
+        df = df.append({"FileName": file,
+                        "Status": "MATCH",
+                        "Comments": "",
+                        "Src_Size": src_size,
+                        "Tgt_Size": tgt_size}, ignore_index=True)
 
     # Add mismatching files
     for file, src_size, tgt_size, diff_percentage in mismatch:
-        data.append({"FileName": file,
-                     "Status": "MISMATCH",
-                     "Comments": f"Percentage Difference: {diff_percentage:.2f}%",
-                     "Src_Size": src_size,
-                     "Tgt_Size": tgt_size})
+        df = df.append({"FileName": file,
+                        "Status": "MISMATCH",
+                        "Comments": f"Percentage Difference: {diff_percentage:.2f}%",
+                        "Src_Size": src_size,
+                        "Tgt_Size": tgt_size}, ignore_index=True)
 
     # Add files with errors
     for file, error in errors:
-        data.append({"FileName": file,
-                     "Status": "ERROR",
-                     "Comments": error,
-                     "Src_Size": "",
-                     "Tgt_Size": ""})
+        df = df.append({"FileName": file,
+                        "Status": "ERROR",
+                        "Comments": error,
+                        "Src_Size": "",
+                        "Tgt_Size": ""}, ignore_index=True)
 
     # Add files only in source directory
     for file in only_in_src:
-        data.append({"FileName": file,
-                     "Status": "ONLY IN SRC",
-                     "Comments": "",
-                     "Src_Size": os.path.getsize(os.path.join(src_dir, file)),
-                     "Tgt_Size": ""})
+        df = df.append({"FileName": file,
+                        "Status": "ONLY IN SRC",
+                        "Comments": "",
+                        "Src_Size": os.path.getsize(os.path.join(src_dir, file)),
+                        "Tgt_Size": ""}, ignore_index=True)
 
     # Add files only in target directory
     for file in only_in_tgt:
-        data.append({"FileName": file,
-                     "Status": "ONLY IN TGT",
-                     "Comments": "",
-                     "Src_Size": "",
-                     "Tgt_Size": os.path.getsize(os.path.join(tgt_dir, file))})
-
-    df = pd.concat([pd.DataFrame([d]) for d in data], ignore_index=True)
+        df = df.append({"FileName": file,
+                        "Status": "ONLY IN TGT",
+                        "Comments": "",
+                        "Src_Size": "",
+                        "Tgt_Size": os.path.getsize(os.path.join(tgt_dir, file))}, ignore_index=True)
 
     return df
-
 
 # *** Settings ***
 # Library           OperatingSystem
@@ -622,7 +1036,7 @@ def create_comparison_df(match: List[Tuple[str, int, int]],
 #     Compare two DataFrames and show differences  ${actual_file_path}  ${expected_file_path}  ${actual_file_name}  ${expected_file_name}  ${file_format}  ${key_columns}  ${ignore_columns}
 
 # *** Settings ***
-# Library  RFPandasUtils.py
+# Library  RFPandasUtils_Delete_Later.py
 #
 # *** Test Cases ***
 # Test Write DataFrame to CSV file

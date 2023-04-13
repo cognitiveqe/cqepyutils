@@ -34,15 +34,24 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         'pandas',
-        'xlsxwriter',
-        'matplotlib',
         'numpy',
+        'matplotlib',
+        'xlsxwriter',
+        'openpyxl',
+        'sqlalchemy',
+        'cx-Oracle',
         'requests',
         'robotframework',
         'robotframework-requests',
+        'robotframework-requestspro',
+        'robotframework-seleniumlibrary',
         'jinja2',
         'pyyaml',
-        'sqlalchemy',
+        'ipython',
+        'jupyterlab',
+        'notebook',
+        'natsort',
+        'robotkernel'
     ],
 )
 

@@ -22,8 +22,9 @@ ch.setFormatter(formatter)
 
 # Add the handler to the logger
 logger.addHandler(ch)
-# logger.addHandler(fh)
 
+
+# logger.addHandler(fh)
 
 def write_df_to_csv(df_to_write: pd.DataFrame, file_path: str, file_name: str, index: bool = False):
     """
