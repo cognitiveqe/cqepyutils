@@ -72,7 +72,7 @@ def execute_query(query: str, config_file_path: str, database_config_name: str,
     logging.info('Step 2: Connecting to database using SQLAlchemy...')
     password = base64.b64decode(db_config['password'].encode()).decode()  # decode base64-encoded password
     engine = create_engine(
-        f"oracle://{db_config['username']}:{password}@{db_config['host']}:{db_config['port']}?service_name={db_config['service_name']}")
+        f"oracle://{db_config['username']}:{password}@{db_config['host']}:{db_config['port']}/?service_name={db_config['service_name']}")
 
     # Step 3: Execute SQL query
     logging.info('Step 3: Executing SQL query...')
@@ -80,6 +80,8 @@ def execute_query(query: str, config_file_path: str, database_config_name: str,
         result = pd.read_sql_query(query, engine, params=query_params)
     else:
         result = pd.read_sql_query(query, engine)
+
+    result = result.fillna('')
 
     return result
 
