@@ -47,6 +47,7 @@ setuptools.setup(
         'robotframework-seleniumlibrary',
         'jinja2',
         'pyyaml',
+        'lxml',
         'ipython',
         'jupyterlab',
         'notebook',

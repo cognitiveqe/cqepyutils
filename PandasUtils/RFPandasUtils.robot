@@ -74,6 +74,11 @@ Read PSV file without header
     ${dataframe}=    Create Dataframe from file    ../tests/10000 Sales Records_without_header.psv    delimiter='|'    has_header=False
     Log    ${dataframe}
 
+Find Delimiter Test
+    [Documentation]    Test the find_delimiter keyword.
+    [Tags]    smoke
+    ${delimiter}    Find Delimiter    ${CURDIR}/sample.csv
+    Should Be Equal As Strings    ${delimiter}    ,
 #*** Settings ***
 #Library           OperatingSystem
 #Library           Pandas
