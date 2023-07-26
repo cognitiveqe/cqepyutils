@@ -11,6 +11,13 @@ from IPython.display import display
 from robot.api import logger
 from typing import List
 
+import plotly.offline as pyo
+import plotly.graph_objs as go
+import plotly.figure_factory as ff
+import plotly.subplots as sp
+
+pyo.init_notebook_mode()
+
 
 @keyword('Get Query from File')
 def get_query_from_file(file_path: str) -> str:
@@ -87,7 +94,8 @@ def execute_query(query: str, config_file_path: str, database_config_name: str,
 
 
 @keyword('Visualize Data')
-def visualize_data(dataframe: pd.DataFrame, x_col: str, y_col: str, plot_type: str = 'bar') -> None:
+def visualize_data(dataframe: pd.DataFrame, x_col: str, y_col: str, plot_type: str = 'bar',
+                   title: str = 'Data Visualization', plot_name: str = 'Trace') -> None:
     """
     Visualizes query results as a plot and displays them as a DataFrame.
 
@@ -97,35 +105,62 @@ def visualize_data(dataframe: pd.DataFrame, x_col: str, y_col: str, plot_type: s
     | *`x_col`*     | `str`             | The name of the column to use for the x-axis of the plot. |
     | *`y_col`*     | `str`             | The name of the column to use for the y-axis of the plot. |
     | *`plot_type`*  | `str`             | The type of plot to use. Default is 'bar', but can be 'line', 'scatter', etc. |
+    | *`title`*      | `str`             | The title of the plot. Default is 'Data Visualization'. |
+    | *`plot_name`*  | `str`             | The name of the trace in the plot. Default is 'Trace'. |
 
     Examples:
     | *Keyword*              | *Arguments*                                                               |
-    | `Visualize Data`       | dataframe=x, x_col=column_name_1, y_col=column_name_2, plot_type='bar'    |
-    | `Visualize Data`       | dataframe=y, x_col=column_name_3, y_col=column_name_4, plot_type='scatter'|
-    | `Visualize Data`       | dataframe=z, x_col=column_name_5, y_col=column_name_6, plot_type='line'   |
+    | `Visualize Data`       | dataframe=x, x_col=column_name_1, y_col=column_name_2, plot_type='bar', title='Bar Plot', plot_name='Trace' |
+    | `Visualize Data`       | dataframe=y, x_col=column_name_3, y_col=column_name_4, plot_type='scatter', title='Scatter Plot', plot_name='Data' |
+    | `Visualize Data`       | dataframe=z, x_col=column_name_5, y_col=column_name_6, plot_type='line', title='Line Plot', plot_name='Line Data' |
     """
 
     # Step 1: Visualize data as plot
     logger.info(f"Step 1: Visualizing data as {plot_type} plot...")
-    plt.figure(figsize=(15, 5))
 
-    if plot_type == 'bar':
-        plt.bar(dataframe[x_col], dataframe[y_col])
-    elif plot_type == 'line':
-        plt.plot(dataframe[x_col], dataframe[y_col])
-    elif plot_type == 'scatter':
-        plt.scatter(dataframe[x_col], dataframe[y_col])
-    else:
-        raise ValueError(f"Invalid plot type '{plot_type}'. Supported types are 'bar', 'line', 'scatter'.")
+    trace = go.Bar(x=dataframe[x_col], y=dataframe[y_col], name=plot_name)
 
-    plt.xlabel(x_col)
-    plt.ylabel(y_col)
-    plt.title('Query Results')
-    plt.show()
+    data = [trace]
+    layout = go.Layout(title=title, barmode='group', height=600, showlegend=True,
+                       margin=dict(l=50, r=50, t=50, b=50))
+    fig = go.Figure(data=trace, layout=layout)
+    fig.update_layout(xaxis_title=x_col.replace('_', ' ').capitalize(),
+                      yaxis_title=y_col.replace('_', ' ').capitalize())
 
-    # Step 2: Display data as DataFrame
-    logger.info('Step 2: Displaying data as DataFrame...')
-    display(dataframe)
+    pyo.iplot(fig)
+
+    # Step 2: Create and display the table
+    logger.info("Step 2: Displaying data as a DataFrame table...")
+
+    table = ff.create_table(dataframe)
+    table.layout.autosize = False
+    table.layout.width = 800
+    table.layout.align = 'center'  # Set the alignment to center
+
+    pyo.iplot(table)
+
+    # Old code
+    # Step 1: Visualize data as plot
+    # logger.info(f"Step 1: Visualizing data as {plot_type} plot...")
+    # plt.figure(figsize=(15, 5))
+    #
+    # if plot_type == 'bar':
+    #     plt.bar(dataframe[x_col], dataframe[y_col])
+    # elif plot_type == 'line':
+    #     plt.plot(dataframe[x_col], dataframe[y_col])
+    # elif plot_type == 'scatter':
+    #     plt.scatter(dataframe[x_col], dataframe[y_col])
+    # else:
+    #     raise ValueError(f"Invalid plot type '{plot_type}'. Supported types are 'bar', 'line', 'scatter'.")
+    #
+    # plt.xlabel(x_col)
+    # plt.ylabel(y_col)
+    # plt.title('Query Results')
+    # plt.show()
+    #
+    # # Step 2: Display data as DataFrame
+    # logger.info('Step 2: Displaying data as DataFrame...')
+    # display(dataframe)
 
 
 @keyword('Execute SQL Query and Visualize Data')

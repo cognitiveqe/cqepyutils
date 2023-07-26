@@ -56,7 +56,9 @@ def find_delimiter(filename: str) -> Union[str, None]:
 
 
 @keyword(name="Create Dataframe From File")
-def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header: bool = True, width: list = None,
+def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header: bool = True,
+                               width: list = None, colspecs: list = None,
+                               column_names: list = None, dtypes: dict = None,
                                encoding: str = 'ISO-8859-1',
                                on_bad_lines: str = 'warn', skiprows: int = 0, skipfooter: int = 0):
     """
@@ -84,6 +86,11 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
     | Create Dataframe From File | /path/to/file.fwf | width=[10, 20, 30] |
     | Create Dataframe From File | /path/to/file.csv | encoding='utf-8', on_bad_lines='raise' |
     """
+
+    # Set default dtype as 'str' if not provided
+    if dtypes is None:
+        dtypes = 'str'
+
     # Determine the file type based on the file extension
     file_ext = file_path.split('.')[-1].lower()
     if file_ext == 'csv':
@@ -92,34 +99,51 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
         # Read CSV file into a DataFrame
         if has_header:
             df = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding, on_bad_lines=on_bad_lines,
-                             skiprows=skiprows, skipfooter=skipfooter, dtype=str)
+                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
         else:
             df = pd.read_csv(file_path, delimiter=delimiter, header=None, encoding=encoding, on_bad_lines=on_bad_lines,
-                             skiprows=skiprows, skipfooter=skipfooter, dtype=str)
+                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
     elif file_ext == 'psv':
         # Log info message
         logger.info(f"Step 1: Reading PSV file '{file_path}' with delimiter '|'")
         # Read PSV file into a DataFrame
         if has_header:
             df = pd.read_csv(file_path, delimiter='|', encoding=encoding, on_bad_lines=on_bad_lines, skiprows=skiprows,
-                             skipfooter=skipfooter, dtype=str)
+                             skipfooter=skipfooter, dtype=dtypes)
         else:
             df = pd.read_csv(file_path, delimiter='|', header=None, encoding=encoding, on_bad_lines=on_bad_lines,
-                             skiprows=skiprows, skipfooter=skipfooter, dtype=str)
+                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
     elif file_ext == 'xlsx':
         # Log info message
         logger.info(f"Step 1: Reading Excel file '{file_path}'")
         # Read Excel file into a DataFrame
         if has_header:
-            df = pd.read_excel(file_path, skiprows=skiprows, skipfooter=skipfooter, dtype=str)
+            df = pd.read_excel(file_path, skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
         else:
-            df = pd.read_excel(file_path, header=None, skiprows=skiprows, skipfooter=skipfooter, dtype=str)
-    elif file_ext == 'dat':
+            df = pd.read_excel(file_path, header=None, skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+
+    # elif file_ext == 'dat':
+    #     # Log info message
+    #     logger.info(f"Step 1: Reading fixed-width file '{file_path}' with width {width}")
+    #     # Read fixed-width file into a DataFrame
+    #     df = pd.read_fwf(file_path, widths=width, header=None, encoding=encoding, on_bad_lines=on_bad_lines,
+    #                      skiprows=1, skipfooter=1, dtype=str)
+    elif file_ext == 'dat' and width is not None:
         # Log info message
         logger.info(f"Step 1: Reading fixed-width file '{file_path}' with width {width}")
-        # Read fixed-width file into a DataFrame
-        df = pd.read_fwf(file_path, widths=width, header=None, encoding=encoding, on_bad_lines=on_bad_lines,
-                         skiprows=1, skipfooter=1, dtype=str)
+        # Read fixed-width file into a DataFrame using width parameter
+        df = pd.read_fwf(file_path, widths=width, header=None, names=column_names,
+                         encoding=encoding, on_bad_lines=on_bad_lines,
+                         skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+
+    elif file_ext == 'dat' and colspecs is not None:
+        # Log info message
+        logger.info(f"Step 1: Reading fixed-width file '{file_path}' with colspecs {colspecs}")
+        # Read fixed-width file into a DataFrame using colspecs parameter
+        df = pd.read_fwf(file_path, colspecs=colspecs, header=None, names=column_names,
+                         encoding=encoding, on_bad_lines=on_bad_lines,
+                         skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+
     else:
         # Log error message and raise exception
         logger.error(
@@ -367,16 +391,40 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, key_column
         logger.info('          Passed : Cell by Cell comparison')
     else:
         logger.info('          Failed : Cell by Cell comparison ..Started to extract mismatched column values')
+
+        # Old code for reference:
+        # create new data frame with mismatched columns
+        # diff_mask = (df1 != df2) & ~(df1.isnull() & df2.isnull())
+        # ne_stacked = diff_mask.stack()
+        # changed = ne_stacked[ne_stacked]
+        # key_columns.append('Mismatch_Column')
+        # changed.index.names = key_columns
+        # difference_locations = np.where(df1 != df2)
+        # changed_from = df1.values[difference_locations]
+        # changed_to = df2.values[difference_locations]
+        # cell_comp_df = pd.DataFrame({'Expected_Data': changed_from, 'Actual_Data': changed_to}, index=changed.index)
+
+        # New code
         # create new data frame with mismatched columns
         diff_mask = (df1 != df2) & ~(df1.isnull() & df2.isnull())
-        ne_stacked = diff_mask.stack()
-        changed = ne_stacked[ne_stacked]
-        key_columns.append('Mismatch_Column')
-        changed.index.names = key_columns
-        difference_locations = np.where(df1 != df2)
-        changed_from = df1.values[difference_locations]
-        changed_to = df2.values[difference_locations]
-        cell_comp_df = pd.DataFrame({'Expected_Data': changed_from, 'Actual_Data': changed_to}, index=changed.index)
+        changed = diff_mask.stack()
+
+        mismatched_data = []
+        for idx in changed.index:
+            mismatched_row = list(idx[:-1])
+            mismatched_column = idx[-1]
+            expected_data = df1.loc[idx[:-1], mismatched_column]
+            actual_data = df2.loc[idx[:-1], mismatched_column]
+
+            mismatched_data.append(mismatched_row + [mismatched_column, expected_data, actual_data])
+
+        cell_comp_df = pd.DataFrame(mismatched_data, columns=['Index_Column', 'Mismatched_Column', 'Expected_Data',
+                                                              'Actual_Data'])
+        cell_comp_df = cell_comp_df.fillna('None')
+        cell_comp_df['Compare_Result'] = np.where((cell_comp_df['Expected_Data'] != cell_comp_df['Actual_Data']),
+                                                  'Mismatch', 'Match')
+        cell_comp_df = cell_comp_df[cell_comp_df['Compare_Result'] == 'Mismatch']
+
     logger.info('Step-12 : Comparison completed and generated info for reports(summary, keys mismatch, cell by cell')
     logger.info('****************************************************************************************************')
     return exec_summary_df, dup_cons_df, key_matched_df, key_mismatched_df, cell_comp_df

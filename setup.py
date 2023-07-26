@@ -53,6 +53,7 @@ setuptools.setup(
         'notebook',
         'natsort',
         'robotkernel'
+        'jupyterlab_robotmode'
     ],
 )
 
