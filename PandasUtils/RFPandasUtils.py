@@ -212,17 +212,29 @@ def write_df_to_psv(df_to_write: pd.DataFrame, file_path: str, file_name: str):
 
 
 @keyword("Compare All File Contents In Directories")
-def df_diff(actual_file_path_name: str, expected_file_path_name: str, key_columns: list = None,
-            ignore_columns: list = None):
+def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter: str = ',', has_header: bool = True,
+            width: list = None, colspecs: list = None, column_names: list = None, dtypes: dict = None,
+            encoding: str = 'ISO-8859-1', on_bad_lines: str = 'warn', skiprows: int = 0, skipfooter: int = 0,
+            key_columns: list = None, ignore_columns: list = None):
     """
-    Compare the difference between two file contents.
+    Compare the difference between two files' contents and generate a detailed mismatch report.
 
     `Args:`
     | *`Name`* | *`Type`* | *`Description`* |
-    | `actual_file_path_name` | `(str)` | `The first DataFrame to compare.` |
-    | `expected_file_path_name` | `(str)`  | `The second DataFrame to compare.` |
-    | `key_columns` | `(Dict[str, str])`  | `A dictionary of column names to use as the primary keys for the comparison.` |
-    | `ignore_columns` | `(Dict[str, str])`  | `A dictionary of column names to ignore during the comparison.` |
+    | `actual_file_path_name` | `(str)` | `The path to the first file containing the actual DataFrame to compare.` |
+    | `expected_file_path_name` | `(str)`  | `The path to the second file containing the expected DataFrame to compare.` |
+    | `delimiter` | `(str)` | `The delimiter character used in the input files. Default is ','.` |
+    | `has_header` | `(bool)` | `Whether the input files have headers. Default is True.` |
+    | `width` | `(list or tuple)` | `A list or tuple of integers specifying the width of each fixed-width field. Required when reading a fixed-width file. Default is None.` |
+    | `colspecs` | `(list or tuple)` | `A list or tuple of pairs (int, int) specifying the column ranges for fixed-width fields. Required when reading a fixed-width file. Default is None.` |
+    | `column_names` | `(list)` | `A list of column names to use if the input files do not have headers.` |
+    | `dtypes` | `(dict)` | `A dictionary specifying the data types of columns in the DataFrame.` |
+    | `encoding` | `(str)` | `The encoding of the input files. Default is 'ISO-8859-1'.` |
+    | `on_bad_lines` | `(str)` | `What to do with bad lines encountered in the input files. Valid values are 'raise', 'warn', and 'skip'. Default is 'warn'.` |
+    | `skiprows` | `(int or list-like)` | `Line numbers to skip (0-indexed) or number of lines to skip (int) at the start of the files. Default is 0.` |
+    | `skipfooter` | `(int)` | `Number of lines to skip at the end of the files. Default is 0.` |
+    | `key_columns` | `(list)` | `A list of column names to use as the primary keys for the comparison.` |
+    | `ignore_columns` | `(list)` | `A list of column names to ignore during the comparison.` |
 
     `Returns:`
     | *`Type`* | *`Description`* |
@@ -231,7 +243,7 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, key_column
     Examples:
     | ${df1} | Read CSV | path/to/actual.csv |
     | ${df2} | Read CSV | path/to/expected.csv |
-    | ${diff} | Compare File Contents | ${df1} | ${df2} | key_columns={'col1': 'string', 'col2': 'int'} | ignore_columns={'col3': 'float'} |
+    | ${diff} | Compare All File Contents In Directories | ${df1} | ${df2} | key_columns=['col1', 'col2'] | ignore_columns=['col3'] |
     """
 
     logger.info('****************************************************************************************************')
@@ -239,8 +251,10 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, key_column
     logger.info('****************************************************************************************************')
     logger.info('Step-01 : Based on file format create the data frames with delimiter(sep)')
 
-    df1 = create_dataframe_from_file(actual_file_path_name)
-    df2 = create_dataframe_from_file(expected_file_path_name)
+    df1 = create_dataframe_from_file(actual_file_path_name, delimiter, has_header, width, colspecs, column_names,
+                                     dtypes, encoding, on_bad_lines, skiprows, skipfooter)
+    df2 = create_dataframe_from_file(expected_file_path_name, delimiter, has_header, width, colspecs, column_names,
+                                     dtypes, encoding, on_bad_lines, skiprows, skipfooter)
 
     # Store total records in actual and expected df
     total_expected = round(len(df1))

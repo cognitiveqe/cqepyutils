@@ -52,7 +52,7 @@ setuptools.setup(
         'jupyterlab',
         'notebook',
         'natsort',
-        'robotkernel'
+        # 'robotkernel=1.6',
         'jupyterlab_robotmode'
     ],
 )
