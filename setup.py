@@ -53,7 +53,9 @@ setuptools.setup(
         'notebook',
         'natsort',
         # 'robotkernel=1.6',
-        'jupyterlab_robotmode'
+        'jupyterlab_robotmode',
+        'plotly',
+        'fsspec'
     ],
 )
 

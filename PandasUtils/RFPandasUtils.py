@@ -95,7 +95,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
     file_ext = file_path.split('.')[-1].lower()
     if file_ext == 'csv':
         # Log info message
-        logger.info(f"Step 1: Reading CSV file '{file_path}' with delimiter '{delimiter}' and encoding '{encoding}'")
+        logger.info(f"        Reading CSV file '{file_path}' with delimiter '{delimiter}' and encoding '{encoding}'")
         # Read CSV file into a DataFrame
         if has_header:
             df = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding, on_bad_lines=on_bad_lines,
@@ -105,7 +105,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
                              skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
     elif file_ext == 'psv':
         # Log info message
-        logger.info(f"Step 1: Reading PSV file '{file_path}' with delimiter '|'")
+        logger.info(f"        Reading PSV file '{file_path}' with delimiter '|'")
         # Read PSV file into a DataFrame
         if has_header:
             df = pd.read_csv(file_path, delimiter='|', encoding=encoding, on_bad_lines=on_bad_lines, skiprows=skiprows,
@@ -115,7 +115,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
                              skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
     elif file_ext == 'xlsx':
         # Log info message
-        logger.info(f"Step 1: Reading Excel file '{file_path}'")
+        logger.info(f"        Reading Excel file '{file_path}'")
         # Read Excel file into a DataFrame
         if has_header:
             df = pd.read_excel(file_path, skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
@@ -130,7 +130,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
     #                      skiprows=1, skipfooter=1, dtype=str)
     elif file_ext == 'dat' and width is not None:
         # Log info message
-        logger.info(f"Step 1: Reading fixed-width file '{file_path}' with width {width}")
+        logger.info(f"        Reading fixed-width file '{file_path}' with specified width")
         # Read fixed-width file into a DataFrame using width parameter
         df = pd.read_fwf(file_path, widths=width, header=None, names=column_names,
                          encoding=encoding, on_bad_lines=on_bad_lines,
@@ -138,7 +138,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
 
     elif file_ext == 'dat' and colspecs is not None:
         # Log info message
-        logger.info(f"Step 1: Reading fixed-width file '{file_path}' with colspecs {colspecs}")
+        logger.info(f"        Reading fixed-width file '{file_path}' with specified colspecs")
         # Read fixed-width file into a DataFrame using colspecs parameter
         df = pd.read_fwf(file_path, colspecs=colspecs, header=None, names=column_names,
                          encoding=encoding, on_bad_lines=on_bad_lines,
@@ -151,7 +151,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
         raise Exception(f"Unsupported file type '{file_ext}'")
 
     # Log info message
-    logger.info(f"Step 2: DataFrame created with {df.shape[0]} rows and {df.shape[1]} columns")
+    logger.info(f"        DataFrame created with {df.shape[0]} rows and {df.shape[1]} columns")
     # Return the DataFrame
     return df
 
@@ -215,7 +215,7 @@ def write_df_to_psv(df_to_write: pd.DataFrame, file_path: str, file_name: str):
 def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter: str = ',', has_header: bool = True,
             width: list = None, colspecs: list = None, column_names: list = None, dtypes: dict = None,
             encoding: str = 'ISO-8859-1', on_bad_lines: str = 'warn', skiprows: int = 0, skipfooter: int = 0,
-            key_columns: list = None, ignore_columns: list = None):
+            key_columns: list = None, ignore_columns: list = None, report_type: str = 'all'):
     """
     Compare the difference between two files' contents and generate a detailed mismatch report.
 
@@ -235,6 +235,7 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter:
     | `skipfooter` | `(int)` | `Number of lines to skip at the end of the files. Default is 0.` |
     | `key_columns` | `(list)` | `A list of column names to use as the primary keys for the comparison.` |
     | `ignore_columns` | `(list)` | `A list of column names to ignore during the comparison.` |
+    | `report_type` | `(str)` | `The type of report to generate. Valid values are 'all', 'duplicate', or 'key_mismatch'. Default is 'all'.` |
 
     `Returns:`
     | *`Type`* | *`Description`* |
@@ -290,7 +291,7 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter:
     df1_col_diff = set(df1.columns) - set(df2.columns)
     df2_col_diff = set(df2.columns) - set(df1.columns)
 
-    logger.info(df1_col_diff)
+    logger.debug(df1_col_diff)
     df1_col_diff = set(df1.columns) - set(df2.columns)
 
     # If key column is not specified then consider all columns except last column
@@ -386,6 +387,24 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter:
     logger.info('Step-08 : Remove the mismatched key values and proceed further in validation')
     df1.drop(key_mismatched_df.loc[key_mismatched_df['source'] == 'left_only'].index, inplace=True)
     df2.drop(key_mismatched_df.loc[key_mismatched_df['source'] == 'right_only'].index, inplace=True)
+
+    # Step-08 to Step-12: Handle different report types
+    if report_type == 'all':
+        # Continue with all the comparison steps and generate all reports
+        pass
+    elif report_type == 'duplicate':
+        # Return only the duplicate records report and exit the function
+        logger.info('Step-09 : Comparison completed and generated info for reports(summary, duplicate')
+        logger.info('************************************************************************************************')
+        return exec_summary_df, dup_cons_df
+    elif report_type == 'key_mismatch':
+        # Return only the key mismatch report and exit the function
+        logger.info('Step-09 : Comparison completed and generated info for reports(summary, key_mismatch')
+        logger.info('************************************************************************************************')
+        return exec_summary_df, key_mismatched_df
+    else:
+        # Invalid report type specified, raise an exception
+        raise ValueError("Invalid 'report_type' specified. Valid values are 'all', 'duplicate', or 'key_mismatch'.")
 
     logger.info('Step-09 : Started cell by cell comparison for key values that exist in both actual and expected')
     # Verify if columns in both df1 and df2 are same
@@ -701,100 +720,6 @@ def create_comparison_df(match: List[Tuple[str, int, int]],
     return df
 
 
-#
-# def create_comparison_df(match: List[Tuple[str, int, int]],
-#                          mismatch: List[Tuple[str, int, int, float]],
-#                          errors: List[Tuple[str, str]],
-#                          only_in_src: List[str],
-#                          only_in_tgt: List[str],
-#                          src_dir: str,
-#                          tgt_dir: str) -> pd.DataFrame:
-#     """
-#     Creates a DataFrame containing the comparison results.
-#
-#     Args:
-#         match (List[Tuple[str, int, int]]): A list of matching files and their sizes.
-#         mismatch (List[Tuple[str, int, int, float]]): A list of mismatching files, their sizes, and the percentage difference.
-#         errors (List[Tuple[str, str]]): A list of files with errors and the error message.
-#         only_in_src (List[str]): A list of files only in the source directory.
-#         only_in_tgt (List[str]): A list of files only in the target directory.
-#         src_dir (str): Path to the source directory.
-#         tgt_dir (str): Path to the target directory.
-#
-#     Returns:
-#         pd.DataFrame: A DataFrame containing the comparison results, including file name, status, comments, and size in both directories.
-#
-#     Examples:
-#     | ${match} = | [('file1.txt', 10, 10), ('file2.txt', 20, 20)] |
-#     | ${mismatch} = | [('file3.txt', 30, 40, 25.0), ('file4.txt', 50, 60, 16.67)] |
-#     | ${errors} = | [('file5.txt', 'Permission denied'), ('file6.txt', 'File not found')] |
-#     | ${only_in_src} = | ['file7.txt', 'file8.txt'] |
-#     | ${only_in_tgt} = | ['file9.txt', 'file10.txt'] |
-#     | ${df} = | Create Comparison Dataframe | ${match} | ${mismatch} | ${errors} | ${only_in_src} | ${only_in_tgt} | /path/to/src | /path/to/tgt |
-#     | Should Be Equal | ${df['FileName'][0]} | file1.txt |
-#     | Should Be Equal | ${df['Is_Common_File'][0]} | True |
-#     | Should Be Equal | ${df['Src_Size'][0]} | 10 |
-#     | Should Be Equal | ${df['Tgt_Size'][0]} | 10 |
-#     | Should Be Equal | ${df['Diff_Percentage'][0]} | 0.0 |
-#     | Should Be Equal | ${df['Comments'][0]} | |
-#     """
-#
-#     logger.info(f"Step 4: Create comparison DataFrame")
-#     data = []
-#
-#     # Add matching files
-#     for file, src_size, tgt_size in match:
-#         data.append({"FileName": file,
-#                      "Is_Common_File": True,
-#                      "Src_Size": src_size,
-#                      "Tgt_Size": tgt_size,
-#                      "Diff_Percentage": 0.0,
-#                      "Comments": ""})
-#
-#     # Add mismatching files
-#     for file, src_size, tgt_size, diff_percentage in mismatch:
-#         data.append({"FileName": file,
-#                      "Is_Common_File": True,
-#                      "Src_Size": src_size,
-#                      "Tgt_Size": tgt_size,
-#                      "Diff_Percentage": diff_percentage,
-#                      "Comments": f"Percentage Difference: {diff_percentage:.2f}%"})
-#
-#     # Add files with errors
-#     for file, error in errors:
-#         data.append({"FileName": file,
-#                      "Is_Common_File": "",
-#                      "Src_Size": "",
-#                      "Tgt_Size": "",
-#                      "Diff_Percentage": "",
-#                      "Comments": error})
-#
-#     # Add files only in source directory
-#     for file in only_in_src:
-#         data.append({"FileName": file,
-#                      "Is_Common_File": "",
-#                      "Src_Size": os.path.getsize(os.path.join(src_dir, file)),
-#                      "Tgt_Size": "",
-#                      "Diff_Percentage": "",
-#                      "Comments": ""})
-#
-#     # Add files only in target directory
-#     for file in only_in_tgt:
-#         data.append({"FileName": file,
-#                      "Is_Common_File": "",
-#                      "Src_Size": "",
-#                      "Tgt_Size": os.path.getsize(os.path.join(tgt_dir, file)),
-#                      "Diff_Percentage": "",
-#                      "Comments": ""})
-#
-#     df = pd.concat([pd.DataFrame([d]) for d in data], ignore_index=True)
-#
-#     # Rearrange columns
-#     df = df[['FileName', 'Is_Common_File', 'Src_Size', 'Tgt_Size', 'Diff_Percentage', 'Comments']]
-#
-#     return df
-
-
 @keyword('Compare All Files In Directories With Diffs')
 def files_diff_with_diffs(src_dir: str, tgt_dir: str) -> None:
     """
@@ -823,220 +748,3 @@ def files_diff_with_diffs(src_dir: str, tgt_dir: str) -> None:
         src_file = os.path.join(src_dir, row['File Name'])
         tgt_file = os.path.join(tgt_dir, row['File Name'])
         df_diff(src_file, tgt_file)
-
-# @keyword("Create Comparison Dataframe")
-# def create_comparison_df(match: List[Tuple[str, int, int]],
-#                          mismatch: List[Tuple[str, int, int, float]],
-#                          errors: List[Tuple[str, str]],
-#                          only_in_src: List[str],
-#                          only_in_tgt: List[str],
-#                          src_dir: str,
-#                          tgt_dir: str) -> pd.DataFrame:
-#     """
-#     Creates a DataFrame containing the comparison results.
-#
-#     Args:
-#         match (List[Tuple[str, int, int]]): A list of matching files and their sizes.
-#         mismatch (List[Tuple[str, int, int, float]]): A list of mismatching files, their sizes, and the percentage difference.
-#         errors (List[Tuple[str, str]]): A list of files with errors and the error message.
-#         only_in_src (List[str]): A list of files only in the source directory.
-#         only_in_tgt (List[str]): A list of files only in the target directory.
-#         src_dir (str): Path to the source directory.
-#         tgt_dir (str): Path to the target directory.
-#
-#     Returns:
-#         pd.DataFrame: A DataFrame containing the comparison results, including file name, status, comments, size in both directories, and the percentage difference (for mismatching files).
-#     """
-#     logger.info(f"Step 4: Create comparison DataFrame")
-#     data = []
-#
-#     # Add matching files
-#     for file, src_size, tgt_size in match:
-#         data.append({"FileName": file,
-#                      "Status": "MATCH",
-#                      "Comments": "",
-#                      "Src_Size": src_size,
-#                      "Tgt_Size": tgt_size,
-#                      "Diff (%)": ""})
-#
-#     # Add mismatching files
-#     for file, src_size, tgt_size, diff_percentage in mismatch:
-#         data.append({"FileName": file,
-#                      "Status": "MISMATCH",
-#                      "Comments": f"Percentage Difference: {diff_percentage:.2f}%",
-#                      "Src_Size": src_size,
-#                      "Tgt_Size": tgt_size,
-#                      "Diff (%)": diff_percentage})
-#
-#     # Add files with errors
-#     for file, error in errors:
-#         data.append({"FileName": file,
-#                      "Status": "ERROR",
-#                      "Comments": error,
-#                      "Src_Size": "",
-#                      "Tgt_Size": "",
-#                      "Diff (%)": ""})
-#
-#     # Add files only in source directory
-#     for file in only_in_src:
-#         data.append({"FileName": file,
-#                      "Status": "Missing in Source",
-#                      "Comments": "",
-#                      "Src_Size": os.path.getsize(os.path.join(src_dir, file)),
-#                      "Tgt_Size": "",
-#                      "Diff (%)": ""})
-#
-#     # Add files only in target directory
-#     for file in only_in_tgt:
-#         data.append({"FileName": file,
-#                      "Status": "Missing in Target",
-#                      "Comments": "",
-#                      "Src_Size": "",
-#                      "Tgt_Size": os.path.getsize(os.path.join(tgt_dir, file)),
-#                      "Diff (%)": ""})
-#
-#     df = pd.concat([pd.DataFrame([d]) for d in data], ignore_index=True)
-#
-#     # Reorder columns
-#     df = df[["FileName", "Is_Common_File", "Src_Size", "Tgt_Size", "Diff_Percentage", "Comments"]]
-#
-#     return df
-
-
-# *** Settings ***
-# Library           OperatingSystem
-# Library           Pandas
-# Library           Difflib
-# Library           Collections
-#
-# *** Keywords ***
-# Files Diff
-#     [Arguments]     ${src_dir}     ${tgt_dir}
-#     Log To Console  Step 1: Log the comparison directories
-#     Log To Console  Comparing files in ${src_dir} and ${tgt_dir}
-#
-#     ${common_files}    Create List
-#     ${match}    Create List
-#     ${mismatch}    Create List
-#     ${errors}    Create List
-#
-#     Log To Console  Step 2: Find common files in source and target directories
-#     :FOR    ${file}    IN    @{os.listdir}(${src_dir})
-#     \    Run Keyword If    '${file}' in @{os.listdir}(${tgt_dir})    Append To List    ${common_files}    ${file}
-#
-#     Log To Console  Step 3: Compare each common file
-#     :FOR    ${file}    IN    @{common_files}
-#     \    ${src_path}    Join Path    ${src_dir}    ${file}
-#     \    ${tgt_path}    Join Path    ${tgt_dir}    ${file}
-#
-#     \    ${src_size}    Get File Size    ${src_path}
-#     \    ${tgt_size}    Get File Size    ${tgt_path}
-#
-#     \    ${cmp_result}    Compare Files    ${src_path}    ${tgt_path}
-#     \    Run Keyword If    '${cmp_result}' == 'True'    Append To List    ${match}    ${file}    ${src_size}    ${tgt_size}
-#     \    ...    ELSE    Compare File Contents    ${src_path}    ${tgt_path}    ${mismatch}    ${file}    ${src_size}    ${tgt_size}
-#
-#     Log To Console  Step 7: Find files that only exist in the source directory
-#     :FOR    ${file}    IN    @{os.listdir}(${src_dir})
-#     \    Run Keyword If    '${file}' not in @{common_files}    Append To List    ${only_in_src}    ${file}    Get File Size    ${src_dir}${/}${file}
-#
-#     Log To Console  Step 8: Find files that only exist in the target directory
-#     :FOR    ${file}    IN    @{os.listdir}(${tgt_dir})
-#     \    Run Keyword If    '${file}' not in @{common_files}    Append To List    ${only_in_tgt}    ${file}    Get File Size    ${tgt_dir}${/}${file}
-#
-#     Log To Console  Step 9: Create a list of DataFrames to concatenate
-#     :FOR    ${file}    ${src_size}    ${tgt_size}    ${diff_percentage}    IN    @{mismatch}
-#     \    ${comments}    Set Variable If    ${diff_percentage} > 0    Contents differ (diff % = ${diff_percentage})    ''
-#     \    ${df}    Create Dataframe    File=${file}    Status=Mismatch    Comments=${comments}    Size (Source)=${src_size}    Size (Target)=${tgt_size}
-#     \    Append To List    ${df_list}    ${df}
-#
-#     :FOR    ${file}    ${src_size}    ${tgt_size}    IN    @{match}
-#     \    ${df}    Create Dataframe    File=${file}    Status=Match    Comments=''    Size (Source)=${src_size}    Size (Target)=${tgt_size}
-#     \    Append To List    ${df_list}    ${df}
-
-
-# ***************
-# *** Test Cases ***
-# Test Write DataFrame to CSV file
-#     ${df}=  Create Dataframe  1,2,3\n4,5,6\n7,8,9
-#     Write DataFrame to CSV file  ${df}  ./  test.csv
-#     ${written_df}=  Read CSV  ./test.csv
-#     Should Be True  ${df}.equals(${written_df})
-#
-# Test Write DataFrame to PSV file
-#     ${df}=  Create Dataframe  1,2,3\n4,5,6\n7,8,9
-#     Write DataFrame to PSV file  ${df}  ./  test.psv
-#     ${written_df}=  Read CSV  ./test.psv  delimiter=|
-#     Should Be True  ${df}.equals(${written_df})
-#
-# Test Compare two DataFrames and show differences
-#     ${actual_file_path}=  Set Variable  ./test_data/
-#     ${expected_file_path}=  Set Variable  ./baseline_data/
-#     ${actual_file_name}=  Set Variable  actual_file
-#     ${expected_file_name}=  Set Variable  expected_file
-#     ${file_format}=  Set Variable  csv
-#     ${key_columns}=  Create List  Key_Column1  Key_Column2
-#     ${ignore_columns}=  Create List  Ignore_Column1  Ignore_Column2
-#     ${expected_df}=  Read CSV  ${expected_file_path}${expected_file_name}.${file_format}
-#     ${actual_df}=  Read CSV  ${actual_file_path}${actual_file_name}.${file_format}
-#     Compare two DataFrames and show differences  ${actual_file_path}  ${expected_file_path}  ${actual_file_name}  ${expected_file_name}  ${file_format}  ${key_columns}  ${ignore_columns}
-
-# *** Settings ***
-# Library  RFPandasUtils.py
-#
-# *** Test Cases ***
-# Test Write DataFrame to CSV file
-#    ${df}=  Create Dataframe  1,2,3\n4,5,6\n7,8,9
-#    Write DataFrame to CSV file  ${df}  ./  test.csv
-#    ${written_df}=  Read CSV  ./test.csv
-#    Should Be True  ${df}.equals(${written_df})
-#
-# Test Write DataFrame to PSV file
-#    ${df}=  Create Dataframe  1,2,3\n4,5,6\n7,8,9
-#    Write DataFrame to PSV file  ${df}  ./  test.psv
-#    ${written_df}=  Read CSV  ./test.psv  delimiter=|
-#    Should Be True  ${df}.equals(${written_df})
-#
-# Test Compare two DataFrames and show differences
-#    ${actual_file_path}=  Set Variable  ./test_data/
-#    ${expected_file_path}=  Set Variable  ./baseline_data/
-#    ${actual_file_name}=  Set Variable  actual_file
-#    ${expected_file_name}=  Set Variable  expected_file
-#    ${file_format}=  Set Variable  csv
-#    ${key_columns}=  Create List  Key_Column1  Key_Column2
-#    ${ignore_columns}=  Create List  Ignore_Column1  Ignore_Column2
-#    ${expected_df}=  Read CSV  ${expected_file_path}${expected_file_name}.${file_format}
-#    ${actual_df}=  Read CSV  ${actual_file_path}${actual_file_name}.${file_format}
-#    Compare two DataFrames and show differences  ${actual_file_path}  ${expected_file_path}  ${actual_file_name}  ${expected_file_name}  ${file_format}  ${key_columns}  ${ignore_columns}
-#
-
-# *** Test Cases ***
-# Read CSV file with header
-#     [Documentation]    Read data from a CSV file with header
-#     ${dataframe}=    Create Dataframe from file    ../tests/5m Sales Records.csv
-#     Log    ${dataframe}
-#
-# Read CSV file without header
-#     [Documentation]    Read data from a CSV file without header
-#     ${dataframe}=    Create Dataframe from file    ../tests/5m Sales Records_without_header.csv    has_header=False
-#     Log    ${dataframe}
-#
-# Read Excel file with header
-#     [Documentation]    Read data from an Excel file with header
-#     ${dataframe}=    Create Dataframe from file    ../tests/5m Sales Records.xlsx
-#     Log    ${dataframe}
-#
-# Read Excel file without header
-#     [Documentation]    Read data from an Excel file without header
-#     ${dataframe}=    Create Dataframe from file    ../tests/5m Sales Records_without_header.xlsx    has_header=False
-#     Log    ${dataframe}
-#
-# Read PSV file with header
-#     [Documentation]    Read data from a PSV file with header
-#     ${dataframe}=    Create Dataframe from file    ../tests/10000 Sales Records.psv    delimiter='|'
-#     Log    ${dataframe}
-#
-# Read PSV file without header
-#     [Documentation]    Read data from a PSV file without header
-#     ${dataframe}=    Create Dataframe from file    ../tests/10000 Sales Records_without_header.psv    delimiter='|'    has_header=False
-#     Log    ${dataframe}
