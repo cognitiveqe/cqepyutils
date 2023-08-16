@@ -71,7 +71,12 @@ class DynamicTestCases(object):
                 doc = row.get('test_scenario', '')
                 tags = row.get('test_tags', '').split(',')
                 kwname = row.get('keyword', '')
-                kwargs = {col[:-2]: row[col] for col in df.columns if col.endswith('_v')}
+                kwargs = {col[:-2]: row[col] if pd.notna(row[col]) else None for col in df.columns if
+                          col.endswith('_v')}
+                # Remove keys with None values
+                kwargs = {key: value for key, value in kwargs.items() if
+                          value is not None}
+                # kwargs = {col[:-2]: row[col] for col in df.columns if col.endswith('_v')}
                 self.add_test_case(name=name, doc=doc, tags=tags, kwname=kwname, **kwargs)
             logger.info(f"Successfully added test cases from '{csv_file_path}'.")
         except Exception as e:

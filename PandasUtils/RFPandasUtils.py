@@ -128,6 +128,44 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
     #     # Read fixed-width file into a DataFrame
     #     df = pd.read_fwf(file_path, widths=width, header=None, encoding=encoding, on_bad_lines=on_bad_lines,
     #                      skiprows=1, skipfooter=1, dtype=str)
+    elif file_ext == 'dat' and delimiter is not None:
+        # Log info message
+        logger.info(f"        Reading delimited .dat file '{file_path}' with delimiter '{delimiter}'")
+        # Read delimited .dat file into a DataFrame
+
+        if has_header:
+            try:
+                df = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding, on_bad_lines=on_bad_lines,
+                                 skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+
+            except pd.errors.ParserError:
+                print("Parser error encountered with CPython. Retrying with Python parser...")
+                df_csv = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding, on_bad_lines=on_bad_lines,
+                                     skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, engine='python')
+
+                # Save the cleaned data to a CSV file
+                write_df_to_csv(df_csv,'tmp_data_extract.csv', index=False)
+
+                # Read the saved CSV file
+                df = pd.read_csv('tmp_data_extract.csv')
+
+        else:
+            try:
+                df = pd.read_csv(file_path, delimiter=delimiter, header=None, names=column_names,
+                                 encoding=encoding, on_bad_lines=on_bad_lines,
+                                 skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+            except pd.errors.ParserError:
+                print("Parser error encountered with CPython. Retrying with Python parser...")
+                df_csv = pd.read_csv(file_path, delimiter=delimiter, header=None, names=column_names,
+                                     encoding=encoding, on_bad_lines=on_bad_lines,
+                                     skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, engine='python')
+
+                # Save the cleaned data to a CSV file
+                write_df_to_csv(df_csv,'tmp_data_extract.csv', index=False)
+
+                # Read the saved CSV file
+                df = pd.read_csv('tmp_data_extract.csv')
+
     elif file_ext == 'dat' and width is not None:
         # Log info message
         logger.info(f"        Reading fixed-width file '{file_path}' with specified width")
@@ -407,59 +445,53 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter:
         raise ValueError("Invalid 'report_type' specified. Valid values are 'all', 'duplicate', or 'key_mismatch'.")
 
     logger.info('Step-09 : Started cell by cell comparison for key values that exist in both actual and expected')
+
     # Verify if columns in both df1 and df2 are same
-    assert (df1.columns == df2.columns).all(), logger.debug('Failed - Column mismatch determined')
+    if not df1.columns.equals(df2.columns):
+        logger.debug('Failed - Column mismatch determined')
+        # Handle the column mismatch case here if needed
+        # ...
 
     logger.info('Step-10 : Verify column data types in both the files, if not convert based on actual')
-    if any(df1.dtypes != df2.dtypes):
+    if not df1.dtypes.equals(df2.dtypes):
         logger.debug('Data Types are different, trying to convert')
         df2 = df2.astype(df1.dtypes)
 
     logger.info('Step-11 : Verify cell by cell data in both the data frame and generate mismatch report')
-    # df to hold cell by cell comparison results
-    cell_comp_df = pd.DataFrame([])
 
-    # Verify if all the cell data are identical
-    if df1.equals(df2):
-        logger.info('          Passed : Cell by Cell comparison')
-    else:
-        logger.info('          Failed : Cell by Cell comparison ..Started to extract mismatched column values')
+    # Identify where cells are different and generate a boolean mask
+    diff_mask = (df1 != df2) & ~(df1.isnull() & df2.isnull())
 
-        # Old code for reference:
-        # create new data frame with mismatched columns
-        # diff_mask = (df1 != df2) & ~(df1.isnull() & df2.isnull())
-        # ne_stacked = diff_mask.stack()
-        # changed = ne_stacked[ne_stacked]
-        # key_columns.append('Mismatch_Column')
-        # changed.index.names = key_columns
-        # difference_locations = np.where(df1 != df2)
-        # changed_from = df1.values[difference_locations]
-        # changed_to = df2.values[difference_locations]
-        # cell_comp_df = pd.DataFrame({'Expected_Data': changed_from, 'Actual_Data': changed_to}, index=changed.index)
+    # Create a DataFrame with mismatched cells
+    cell_comp_df = df1.where(diff_mask).stack().reset_index()
+    key_columns_names = key_columns if isinstance(key_columns, list) else [key_columns]
+    cell_comp_df.columns = key_columns_names + ['Column', 'Expected_Data']
 
-        # New code
-        # create new data frame with mismatched columns
-        diff_mask = (df1 != df2) & ~(df1.isnull() & df2.isnull())
-        changed = diff_mask.stack()
+    def get_index_value(row):
+        if len(key_columns_names) > 1:
+            return tuple(row[key] for key in key_columns_names)
+        else:
+            return row[key_columns_names[0]]
 
-        mismatched_data = []
-        for idx in changed.index:
-            mismatched_row = list(idx[:-1])
-            mismatched_column = idx[-1]
-            expected_data = df1.loc[idx[:-1], mismatched_column]
-            actual_data = df2.loc[idx[:-1], mismatched_column]
+    # Apply the helper function to get index values
+    cell_comp_df['Index_Value'] = cell_comp_df.apply(get_index_value, axis=1)
 
-            mismatched_data.append(mismatched_row + [mismatched_column, expected_data, actual_data])
+    # Use Index_Value to fetch Actual_Data
+    cell_comp_df['Actual_Data'] = cell_comp_df.apply(
+        lambda row: df2.at[row['Index_Value'], row['Column']],
+        axis=1
+    )
 
-        cell_comp_df = pd.DataFrame(mismatched_data, columns=['Index_Column', 'Mismatched_Column', 'Expected_Data',
-                                                              'Actual_Data'])
-        cell_comp_df = cell_comp_df.fillna('None')
-        cell_comp_df['Compare_Result'] = np.where((cell_comp_df['Expected_Data'] != cell_comp_df['Actual_Data']),
-                                                  'Mismatch', 'Match')
-        cell_comp_df = cell_comp_df[cell_comp_df['Compare_Result'] == 'Mismatch']
+    # Add a 'Compare_Result' column
+    cell_comp_df['Compare_Result'] = np.where(cell_comp_df['Expected_Data'] != cell_comp_df['Actual_Data'],
+                                              'Mismatch', 'Match')
 
-    logger.info('Step-12 : Comparison completed and generated info for reports(summary, keys mismatch, cell by cell')
+    # Drop the Index_Value column before returning
+    cell_comp_df = cell_comp_df.drop(columns=['Index_Value'])
+
+    logger.info('Step-12 : Comparison completed and generated info for reports(summary, keys mismatch, cell by cell)')
     logger.info('****************************************************************************************************')
+
     return exec_summary_df, dup_cons_df, key_matched_df, key_mismatched_df, cell_comp_df
 
 

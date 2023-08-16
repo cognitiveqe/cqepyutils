@@ -55,19 +55,8 @@ setuptools.setup(
         # 'robotkernel=1.6',
         'jupyterlab_robotmode',
         'plotly',
-        'fsspec'
+        'fsspec',
+        'twine',
+        'wheel',
     ],
 )
-
-# 'logging',
-
-# 'dask',
-# 'base64',
-# 'display',
-# 'difflib',
-# 'time',
-# 'os',
-# 'filecmp',
-# 'fileinput',
-# 'operator',
-# 'create_engine',
