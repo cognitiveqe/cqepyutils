@@ -1,5 +1,6 @@
 from robot.api import logger
 from typing import List
+from PandasUtils import RFPandasUtils
 import pandas as pd
 
 
@@ -40,6 +41,37 @@ class DynamicTestCases(object):
         for arg_name, arg_value in kwargs.items():
             logger.info(f"    {arg_name} = {arg_value}")
 
+    @staticmethod
+    def preprocess_kwargs(row):
+        """Preprocesses keyword arguments based on ICD configuration.
+
+        Args:
+            | *Name*              | *Type*  | *Description*                                     |
+            | `row`               | `dict`  | The row of data containing test case information. |
+
+        Returns:
+            | `dict` | A dictionary containing preprocessed keyword arguments.
+
+        The method checks if the 'icd_available' value in the row is 'yes' or 'y'.
+        If available, it extracts the 'icd_config_path' from the row and reads the ICD configuration file.
+        The method returns a dictionary with 'colspecs', 'data_types', and 'column_names' if applicable,
+        otherwise an empty dictionary.
+
+        Example:
+        | ${kwargs} = | Preprocess Kwargs | ${row} |
+        """
+        icd_available = row.get('icd_available', '').lower()
+        if icd_available in ['yes', 'y']:
+            icd_config_path = row.get('icd_config_path', '')  # Extract the icd_config_path from the row
+            if icd_config_path:
+                colspecs, _, data_types, column_names = RFPandasUtils.get_file_format_using_icd(icd_config_path)
+                return {
+                    'colspecs': colspecs,
+                    'data_types': data_types,
+                    'column_names': column_names
+                }
+        return {}
+
     def read_test_data_and_add_test_cases(self, csv_file_path: str):
         """Reads test data from a CSV file and adds test cases dynamically.
 
@@ -52,10 +84,9 @@ class DynamicTestCases(object):
         - test_scenario (*str*): Description of the test scenario.
         - test_tags (*str*): Comma-separated tags for categorization.
         - keyword (*str*): The keyword associated with the test.
+        - icd_available (*str*): 'Yes' or 'No' indicating whether ICD configuration is available.
+        - icd_config_path (*str*): The path to the ICD configuration file (if available).
         - Any additional columns ending with '_v' (*str*): Additional parameters for the test case.
-
-        Additionally, the 'tbe' column should be present to determine whether a test case should be added.
-        Valid values for 'tbe' are: 'YES', 'yes', 'y' (case-insensitive).
 
         Example:
         | Read Test Data And Add Test Cases | /path/to/test_data.csv |
@@ -71,13 +102,14 @@ class DynamicTestCases(object):
                 doc = row.get('test_scenario', '')
                 tags = row.get('test_tags', '').split(',')
                 kwname = row.get('keyword', '')
-                kwargs = {col[:-2]: row[col] if pd.notna(row[col]) else None for col in df.columns if
+
+                kwargs = {col[:-2]: row[col] if pd.notna(row[col]) else None for col in filtered_df.columns if
                           col.endswith('_v')}
-                # Remove keys with None values
-                kwargs = {key: value for key, value in kwargs.items() if
-                          value is not None}
-                # kwargs = {col[:-2]: row[col] for col in df.columns if col.endswith('_v')}
+                kwargs.update(self.preprocess_kwargs(row))
+                kwargs = {key: value for key, value in kwargs.items() if value is not None}
+
                 self.add_test_case(name=name, doc=doc, tags=tags, kwname=kwname, **kwargs)
+
             logger.info(f"Successfully added test cases from '{csv_file_path}'.")
         except Exception as e:
             logger.error(f"Error occurred while reading test data from '{csv_file_path}': {e}")

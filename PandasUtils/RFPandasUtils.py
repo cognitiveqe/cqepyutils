@@ -87,7 +87,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
     | Create Dataframe From File | /path/to/file.csv | encoding='utf-8', on_bad_lines='raise' |
     """
 
-    # Set default dtype as 'str' if not provided
+    # Set default dtypes as 'str' if not provided
     if dtypes is None:
         dtypes = 'str'
 
@@ -127,7 +127,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
     #     logger.info(f"Step 1: Reading fixed-width file '{file_path}' with width {width}")
     #     # Read fixed-width file into a DataFrame
     #     df = pd.read_fwf(file_path, widths=width, header=None, encoding=encoding, on_bad_lines=on_bad_lines,
-    #                      skiprows=1, skipfooter=1, dtype=str)
+    #                      skiprows=1, skipfooter=1, dtypes=str)
     elif file_ext == 'dat' and delimiter is not None:
         # Log info message
         logger.info(f"        Reading delimited .dat file '{file_path}' with delimiter '{delimiter}'")
@@ -144,7 +144,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
                                      skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, engine='python')
 
                 # Save the cleaned data to a CSV file
-                write_df_to_csv(df_csv,'tmp_data_extract.csv', index=False)
+                write_df_to_csv(df_csv, 'tmp_data_extract.csv', index=False)
 
                 # Read the saved CSV file
                 df = pd.read_csv('tmp_data_extract.csv')
@@ -161,7 +161,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
                                      skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, engine='python')
 
                 # Save the cleaned data to a CSV file
-                write_df_to_csv(df_csv,'tmp_data_extract.csv', index=False)
+                write_df_to_csv(df_csv, 'tmp_data_extract.csv', index=False)
 
                 # Read the saved CSV file
                 df = pd.read_csv('tmp_data_extract.csv')
@@ -250,7 +250,7 @@ def write_df_to_psv(df_to_write: pd.DataFrame, file_path: str, file_name: str):
 
 
 @keyword("Compare All File Contents In Directories")
-def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter: str = ',', has_header: bool = True,
+def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter: str = None, has_header: bool = True,
             width: list = None, colspecs: list = None, column_names: list = None, dtypes: dict = None,
             encoding: str = 'ISO-8859-1', on_bad_lines: str = 'warn', skiprows: int = 0, skipfooter: int = 0,
             key_columns: list = None, ignore_columns: list = None, report_type: str = 'all'):
@@ -780,3 +780,63 @@ def files_diff_with_diffs(src_dir: str, tgt_dir: str) -> None:
         src_file = os.path.join(src_dir, row['File Name'])
         tgt_file = os.path.join(tgt_dir, row['File Name'])
         df_diff(src_file, tgt_file)
+
+
+@keyword("Get File Format Using ICD")
+def get_file_format_using_icd(icd_config_path: str):
+    """
+    Get the file format using an ICD configuration.
+
+    `Args:`
+    | *`Name`* | *`Type`* | *`Description`* |
+    | `icd_config_path` | `str` | `The path to the ICD configuration file.` |
+
+    `Returns:`
+    | `colspecs` | `list` of tuples | `List of colspecs as (start_pos, end_pos).` |
+    | `widths` | `list` of int | `List of field widths.` |
+    | `data_types` | `dict` | `Dictionary of field names and corresponding data types.` |
+    | `column_names` | `list` of str | `List of column names.` |
+
+    Examples:
+    | ${colspecs} | ${widths} | ${data_types} | ${column_names} | = | Get File Format Using ICD | /path/to/icd_config.xlsx |
+    """
+    logger.info(f"Step-01: Reading ICD configuration from '{icd_config_path}'")
+    try:
+        icd_df = pd.read_excel(icd_config_path, sheet_name=0)  # Read the first sheet
+    except Exception as e:
+        logger.error(f"Error reading ICD configuration: {e}")
+        return None, None, None, None
+
+    if not all(col in icd_df.columns for col in ['Field_Name', 'Mandatory_Flag', 'Data_Type', 'Length',
+                                                 'Start_Position', 'End_Position']):
+        logger.error("ICD configuration is not as per format. Required columns are: "
+                     "Field_Name, Mandatory_Flag, Data_Type, Length, Start_Position, End_Position")
+        return None, None, None, None
+
+    colspecs = []
+    widths = []
+    data_types = {}
+    column_names = []
+
+    for _, row in icd_df.iterrows():
+        start_pos = row['Start_Position'] - 1  # Adjust to 0-index
+        end_pos = row['End_Position']
+        length = row['Length']
+        data_type = row['Data_Type']
+        field_name = row['Field_Name']
+
+        colspecs.append((start_pos, end_pos))
+        widths.append(length)
+
+        # Map ICD data type to Pandas data type
+        if data_type.startswith('Varchar'):
+            data_types[field_name] = 'str'
+        elif data_type.startswith('Integer'):
+            data_types[field_name] = 'int'
+        elif data_type.startswith('Float'):
+            data_types[field_name] = 'float'
+
+        column_names.append(field_name)
+
+    logger.info("Step-02: ICD configuration successfully processed")
+    return colspecs, widths, data_types, column_names
