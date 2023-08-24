@@ -64,10 +64,10 @@ class DynamicTestCases(object):
         if icd_available in ['yes', 'y']:
             icd_config_path = row.get('icd_config_path', '')  # Extract the icd_config_path from the row
             if icd_config_path:
-                colspecs, _, data_types, column_names = RFPandasUtils.get_file_format_using_icd(icd_config_path)
+                colspecs, _, dtypes, column_names = RFPandasUtils.get_file_format_using_icd(icd_config_path)
                 return {
                     'colspecs': colspecs,
-                    'data_types': data_types,
+                    'dtypes': dtypes,
                     'column_names': column_names
                 }
         return {}

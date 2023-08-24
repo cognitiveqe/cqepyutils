@@ -39,7 +39,7 @@ setuptools.setup(
         'xlsxwriter',
         'openpyxl',
         'sqlalchemy',
-        'cx-Oracle',
+        # 'cx-Oracle',
         'requests',
         'robotframework',
         'robotframework-requests',

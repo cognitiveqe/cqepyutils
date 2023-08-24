@@ -91,108 +91,52 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
     if dtypes is None:
         dtypes = 'str'
 
+    # Determine if the file has a delimiter based on the provided delimiter
+    has_delimiter = delimiter != ''
+
     # Determine the file type based on the file extension
     file_ext = file_path.split('.')[-1].lower()
-    if file_ext == 'csv':
+    if has_delimiter:
         # Log info message
-        logger.info(f"        Reading CSV file '{file_path}' with delimiter '{delimiter}' and encoding '{encoding}'")
-        # Read CSV file into a DataFrame
-        if has_header:
-            df = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding, on_bad_lines=on_bad_lines,
-                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
-        else:
-            df = pd.read_csv(file_path, delimiter=delimiter, header=None, encoding=encoding, on_bad_lines=on_bad_lines,
-                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
-    elif file_ext == 'psv':
-        # Log info message
-        logger.info(f"        Reading PSV file '{file_path}' with delimiter '|'")
-        # Read PSV file into a DataFrame
-        if has_header:
-            df = pd.read_csv(file_path, delimiter='|', encoding=encoding, on_bad_lines=on_bad_lines, skiprows=skiprows,
-                             skipfooter=skipfooter, dtype=dtypes)
-        else:
-            df = pd.read_csv(file_path, delimiter='|', header=None, encoding=encoding, on_bad_lines=on_bad_lines,
-                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+        logger.info(f"        Reading delimited file '{file_path}' with delimiter '{delimiter}' and encoding '{encoding}'")
+        # Read delimited file into a DataFrame
+        df = pd.read_csv(file_path, delimiter=delimiter, header=None if not has_header else 'infer',
+                         names=column_names, encoding=encoding, on_bad_lines=on_bad_lines,
+                         skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
     elif file_ext == 'xlsx':
         # Log info message
         logger.info(f"        Reading Excel file '{file_path}'")
         # Read Excel file into a DataFrame
-        if has_header:
-            df = pd.read_excel(file_path, skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+        df = pd.read_excel(file_path, skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+    elif file_ext == 'dat':
+        if width is not None:
+            # Log info message
+            logger.info(f"        Reading fixed-width file '{file_path}' with specified width")
+            # Read fixed-width file into a DataFrame using width parameter
+            df = pd.read_fwf(file_path, widths=width, header=None if not has_header else 'infer', names=column_names,
+                             encoding=encoding, on_bad_lines=on_bad_lines,
+                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+        elif colspecs is not None:
+            # Log info message
+            logger.info(f"        Reading fixed-width file '{file_path}' with specified colspecs")
+            # Read fixed-width file into a DataFrame using colspecs parameter
+            df = pd.read_fwf(file_path, colspecs=colspecs, header=None if not has_header else 'infer',
+                             names=column_names, encoding=encoding, on_bad_lines=on_bad_lines,
+                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
         else:
-            df = pd.read_excel(file_path, header=None, skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
-
-    # elif file_ext == 'dat':
-    #     # Log info message
-    #     logger.info(f"Step 1: Reading fixed-width file '{file_path}' with width {width}")
-    #     # Read fixed-width file into a DataFrame
-    #     df = pd.read_fwf(file_path, widths=width, header=None, encoding=encoding, on_bad_lines=on_bad_lines,
-    #                      skiprows=1, skipfooter=1, dtypes=str)
-    elif file_ext == 'dat' and delimiter is not None:
-        # Log info message
-        logger.info(f"        Reading delimited .dat file '{file_path}' with delimiter '{delimiter}'")
-        # Read delimited .dat file into a DataFrame
-
-        if has_header:
-            try:
-                df = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding, on_bad_lines=on_bad_lines,
-                                 skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
-
-            except pd.errors.ParserError:
-                print("Parser error encountered with CPython. Retrying with Python parser...")
-                df_csv = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding, on_bad_lines=on_bad_lines,
-                                     skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, engine='python')
-
-                # Save the cleaned data to a CSV file
-                write_df_to_csv(df_csv, 'tmp_data_extract.csv', index=False)
-
-                # Read the saved CSV file
-                df = pd.read_csv('tmp_data_extract.csv')
-
-        else:
-            try:
-                df = pd.read_csv(file_path, delimiter=delimiter, header=None, names=column_names,
-                                 encoding=encoding, on_bad_lines=on_bad_lines,
-                                 skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
-            except pd.errors.ParserError:
-                print("Parser error encountered with CPython. Retrying with Python parser...")
-                df_csv = pd.read_csv(file_path, delimiter=delimiter, header=None, names=column_names,
-                                     encoding=encoding, on_bad_lines=on_bad_lines,
-                                     skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, engine='python')
-
-                # Save the cleaned data to a CSV file
-                write_df_to_csv(df_csv, 'tmp_data_extract.csv', index=False)
-
-                # Read the saved CSV file
-                df = pd.read_csv('tmp_data_extract.csv')
-
-    elif file_ext == 'dat' and width is not None:
-        # Log info message
-        logger.info(f"        Reading fixed-width file '{file_path}' with specified width")
-        # Read fixed-width file into a DataFrame using width parameter
-        df = pd.read_fwf(file_path, widths=width, header=None, names=column_names,
-                         encoding=encoding, on_bad_lines=on_bad_lines,
-                         skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
-
-    elif file_ext == 'dat' and colspecs is not None:
-        # Log info message
-        logger.info(f"        Reading fixed-width file '{file_path}' with specified colspecs")
-        # Read fixed-width file into a DataFrame using colspecs parameter
-        df = pd.read_fwf(file_path, colspecs=colspecs, header=None, names=column_names,
-                         encoding=encoding, on_bad_lines=on_bad_lines,
-                         skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
-
+            # Log error message and raise exception
+            logger.error("Error: For '.dat' files, you must provide either 'width' or 'colspecs'.")
+            raise Exception("Invalid '.dat' file configuration")
     else:
         # Log error message and raise exception
-        logger.error(
-            f"Error: Unsupported file type '{file_ext}'. Supported file types are 'csv', 'psv', 'xlsx', and 'dat'.")
+        logger.error(f"Error: Unsupported file type '{file_ext}'. "
+                     f"Supported file types are 'csv', 'psv', 'xlsx', and 'dat'.")
         raise Exception(f"Unsupported file type '{file_ext}'")
 
     # Log info message
     logger.info(f"        DataFrame created with {df.shape[0]} rows and {df.shape[1]} columns")
     # Return the DataFrame
     return df
-
 
 @keyword("Write DataFrame To CSV File")
 def write_df_to_csv(df_to_write: pd.DataFrame, file_path: str, file_name: str, index: bool = False):
@@ -794,7 +738,7 @@ def get_file_format_using_icd(icd_config_path: str):
     `Returns:`
     | `colspecs` | `list` of tuples | `List of colspecs as (start_pos, end_pos).` |
     | `widths` | `list` of int | `List of field widths.` |
-    | `data_types` | `dict` | `Dictionary of field names and corresponding data types.` |
+    | `dtypes` | `dict` | `Dictionary of field names and corresponding data types.` |
     | `column_names` | `list` of str | `List of column names.` |
 
     Examples:
@@ -815,28 +759,170 @@ def get_file_format_using_icd(icd_config_path: str):
 
     colspecs = []
     widths = []
-    data_types = {}
+    dtypes = {}
     column_names = []
 
     for _, row in icd_df.iterrows():
         start_pos = row['Start_Position'] - 1  # Adjust to 0-index
         end_pos = row['End_Position']
         length = row['Length']
-        data_type = row['Data_Type']
+        dtypes = row['Data_Type']
         field_name = row['Field_Name']
 
         colspecs.append((start_pos, end_pos))
         widths.append(length)
 
         # Map ICD data type to Pandas data type
-        if data_type.startswith('Varchar'):
-            data_types[field_name] = 'str'
-        elif data_type.startswith('Integer'):
-            data_types[field_name] = 'int'
-        elif data_type.startswith('Float'):
-            data_types[field_name] = 'float'
+        if dtypes.startswith('Varchar'):
+            dtypes[field_name] = 'str'
+        elif dtypes.startswith('Integer'):
+            dtypes[field_name] = 'int'
+        elif dtypes.startswith('Float'):
+            dtypes[field_name] = 'float'
 
         column_names.append(field_name)
 
+    if any(pd.isna(start) or pd.isna(end) for start, end in colspecs):
+        colspecs = None
+    dtypes = None
     logger.info("Step-02: ICD configuration successfully processed")
-    return colspecs, widths, data_types, column_names
+    return colspecs, widths, dtypes, column_names
+
+# Old code for reference...
+# @keyword(name="Create Dataframe From File")
+# def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header: bool = True,
+#                                width: list = None, colspecs: list = None,
+#                                column_names: list = None, dtypes: dict = None,
+#                                encoding: str = 'ISO-8859-1',
+#                                on_bad_lines: str = 'warn', skiprows: int = 0, skipfooter: int = 0):
+#     """
+#     Creates a Pandas DataFrame from a CSV, PSV, or fixed-width file.
+#
+#     `Args:`
+#     | *`Name`* | *`Type`* | *`Description`* |
+#     | `file_path`    | `(str)` | `The path to the input file.` |
+#     | `delimiter`    | `(str)` | The delimiter character used in the input file. Default is ','.` |
+#     | `has_header`   | `(bool)` | `Whether the input file has headers. Default is True.` |
+#     | `width`        | `(list or tuple)` | `A list or tuple of integers specifying the width of each fixed-width field. Required when reading a fixed-width file. Default is None.` |
+#     | `encoding`     | `(str)` | `The encoding of the input file. Default is 'ISO-8859-1'.` |
+#     | `on_bad_lines` | `(str)` | `What to do with bad lines encountered in the input file. Valid values are 'raise', 'warn', and 'skip'. Default is 'warn'.` |
+#     | `skiprows`     | `(int or list-like)` | `Line numbers to skip (0-indexed) or number of lines to skip (int) at the start of the file. Default is 0.` |
+#     | `skipfooter`   | `(int)` | `Number of lines to skip at the end of the file. Default is 0.` |
+#
+#     `Returns:`
+#     | *`Type`* | *`Description`* |
+#     | `pandas.DataFrame` | `The DataFrame created from the input file.` |
+#
+#     Examples:
+#     | Create Dataframe From File | /path/to/file.csv |
+#     | Create Dataframe From File | /path/to/file.psv | delimiter='|', has_header=False |
+#     | Create Dataframe From File | /path/to/file.xlsx | has_header=False |
+#     | Create Dataframe From File | /path/to/file.fwf | width=[10, 20, 30] |
+#     | Create Dataframe From File | /path/to/file.csv | encoding='utf-8', on_bad_lines='raise' |
+#     """
+#
+#     # Set default dtypes as 'str' if not provided
+#     if dtypes is None:
+#         dtypes = 'str'
+#
+#     # Determine the file type based on the file extension
+#     file_ext = file_path.split('.')[-1].lower()
+#     if file_ext == 'csv':
+#         # Log info message
+#         logger.info(f"        Reading CSV file '{file_path}' with delimiter '{delimiter}' and encoding '{encoding}'")
+#         # Read CSV file into a DataFrame
+#         if has_header:
+#             df = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding, on_bad_lines=on_bad_lines,
+#                              skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+#         else:
+#             df = pd.read_csv(file_path, delimiter=delimiter, header=None, encoding=encoding, on_bad_lines=on_bad_lines,
+#                              skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+#     elif file_ext == 'psv':
+#         # Log info message
+#         logger.info(f"        Reading PSV file '{file_path}' with delimiter '|'")
+#         # Read PSV file into a DataFrame
+#         if has_header:
+#             df = pd.read_csv(file_path, delimiter='|', encoding=encoding, on_bad_lines=on_bad_lines, skiprows=skiprows,
+#                              skipfooter=skipfooter, dtype=dtypes)
+#         else:
+#             df = pd.read_csv(file_path, delimiter='|', header=None, encoding=encoding, on_bad_lines=on_bad_lines,
+#                              skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+#     elif file_ext == 'xlsx':
+#         # Log info message
+#         logger.info(f"        Reading Excel file '{file_path}'")
+#         # Read Excel file into a DataFrame
+#         if has_header:
+#             df = pd.read_excel(file_path, skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+#         else:
+#             df = pd.read_excel(file_path, header=None, skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+#
+#     # elif file_ext == 'dat':
+#     #     # Log info message
+#     #     logger.info(f"Step 1: Reading fixed-width file '{file_path}' with width {width}")
+#     #     # Read fixed-width file into a DataFrame
+#     #     df = pd.read_fwf(file_path, widths=width, header=None, encoding=encoding, on_bad_lines=on_bad_lines,
+#     #                      skiprows=1, skipfooter=1, dtypes=str)
+#     elif file_ext == 'dat' and delimiter is not None:
+#         # Log info message
+#         logger.info(f"        Reading delimited .dat file '{file_path}' with delimiter '{delimiter}'")
+#         # Read delimited .dat file into a DataFrame
+#
+#         if has_header:
+#             try:
+#                 df = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding, on_bad_lines=on_bad_lines,
+#                                  skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+#
+#             except pd.errors.ParserError:
+#                 print("Parser error encountered with CPython. Retrying with Python parser...")
+#                 df_csv = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding, on_bad_lines=on_bad_lines,
+#                                      skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, engine='python')
+#
+#                 # Save the cleaned data to a CSV file
+#                 write_df_to_csv(df_csv, 'tmp_data_extract.csv', index=False)
+#
+#                 # Read the saved CSV file
+#                 df = pd.read_csv('tmp_data_extract.csv')
+#
+#         else:
+#             try:
+#                 df = pd.read_csv(file_path, delimiter=delimiter, header=None, names=column_names,
+#                                  encoding=encoding, on_bad_lines=on_bad_lines,
+#                                  skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+#             except pd.errors.ParserError:
+#                 print("Parser error encountered with CPython. Retrying with Python parser...")
+#                 df_csv = pd.read_csv(file_path, delimiter=delimiter, header=None, names=column_names,
+#                                      encoding=encoding, on_bad_lines=on_bad_lines,
+#                                      skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, engine='python')
+#
+#                 # Save the cleaned data to a CSV file
+#                 write_df_to_csv(df_csv, 'tmp_data_extract.csv', index=False)
+#
+#                 # Read the saved CSV file
+#                 df = pd.read_csv('tmp_data_extract.csv')
+#
+#     elif file_ext == 'dat' and width is not None:
+#         # Log info message
+#         logger.info(f"        Reading fixed-width file '{file_path}' with specified width")
+#         # Read fixed-width file into a DataFrame using width parameter
+#         df = pd.read_fwf(file_path, widths=width, header=None, names=column_names,
+#                          encoding=encoding, on_bad_lines=on_bad_lines,
+#                          skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+#
+#     elif file_ext == 'dat' and colspecs is not None:
+#         # Log info message
+#         logger.info(f"        Reading fixed-width file '{file_path}' with specified colspecs")
+#         # Read fixed-width file into a DataFrame using colspecs parameter
+#         df = pd.read_fwf(file_path, colspecs=colspecs, header=None, names=column_names,
+#                          encoding=encoding, on_bad_lines=on_bad_lines,
+#                          skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+#
+#     else:
+#         # Log error message and raise exception
+#         logger.error(
+#             f"Error: Unsupported file type '{file_ext}'. Supported file types are 'csv', 'psv', 'xlsx', and 'dat'.")
+#         raise Exception(f"Unsupported file type '{file_ext}'")
+#
+#     # Log info message
+#     logger.info(f"        DataFrame created with {df.shape[0]} rows and {df.shape[1]} columns")
+#     # Return the DataFrame
+#     return df
