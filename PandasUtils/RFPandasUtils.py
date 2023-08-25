@@ -102,7 +102,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
         # Read delimited file into a DataFrame
         df = pd.read_csv(file_path, delimiter=delimiter, header=None if not has_header else 'infer',
                          names=column_names, encoding=encoding, on_bad_lines=on_bad_lines,
-                         skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+                         skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, engine='python')
     elif file_ext == 'xlsx':
         # Log info message
         logger.info(f"        Reading Excel file '{file_path}'")
