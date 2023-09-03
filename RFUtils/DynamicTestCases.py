@@ -92,7 +92,7 @@ class DynamicTestCases(object):
         | Read Test Data And Add Test Cases | /path/to/test_data.csv |
         """
         try:
-            df = pd.read_csv(csv_file_path)
+            df = pd.read_csv(csv_file_path, dtype='str')
 
             # Filter rows based on values in the 'tbe' column
             filtered_df = df[df['tbe'].str.lower().isin(['yes', 'y'])]

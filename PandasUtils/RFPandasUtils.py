@@ -56,7 +56,7 @@ def find_delimiter(filename: str) -> Union[str, None]:
 
 
 @keyword(name="Create Dataframe From File")
-def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header: bool = True,
+def create_dataframe_from_file(file_path: str, delimiter: str = None, has_header: bool = True,
                                width: list = None, colspecs: list = None,
                                column_names: list = None, dtypes: dict = None,
                                encoding: str = 'ISO-8859-1',
@@ -92,7 +92,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
         dtypes = 'str'
 
     # Determine if the file has a delimiter based on the provided delimiter
-    has_delimiter = delimiter != ''
+    has_delimiter = delimiter is not None and delimiter != ''
 
     # Determine the file type based on the file extension
     file_ext = file_path.split('.')[-1].lower()
@@ -102,7 +102,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
         # Read delimited file into a DataFrame
         df = pd.read_csv(file_path, delimiter=delimiter, header=None if not has_header else 'infer',
                          names=column_names, encoding=encoding, on_bad_lines=on_bad_lines,
-                         skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, engine='python')
+                         skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, index_col=False, engine='python')
     elif file_ext == 'xlsx':
         # Log info message
         logger.info(f"        Reading Excel file '{file_path}'")
@@ -115,14 +115,14 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
             # Read fixed-width file into a DataFrame using width parameter
             df = pd.read_fwf(file_path, widths=width, header=None if not has_header else 'infer', names=column_names,
                              encoding=encoding, on_bad_lines=on_bad_lines,
-                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, index_col=False)
         elif colspecs is not None:
             # Log info message
             logger.info(f"        Reading fixed-width file '{file_path}' with specified colspecs")
             # Read fixed-width file into a DataFrame using colspecs parameter
             df = pd.read_fwf(file_path, colspecs=colspecs, header=None if not has_header else 'infer',
                              names=column_names, encoding=encoding, on_bad_lines=on_bad_lines,
-                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes)
+                             skiprows=skiprows, skipfooter=skipfooter, dtype=dtypes, index_col=False)
         else:
             # Log error message and raise exception
             logger.error("Error: For '.dat' files, you must provide either 'width' or 'colspecs'.")
@@ -137,6 +137,7 @@ def create_dataframe_from_file(file_path: str, delimiter: str = ',', has_header:
     logger.info(f"        DataFrame created with {df.shape[0]} rows and {df.shape[1]} columns")
     # Return the DataFrame
     return df
+
 
 @keyword("Write DataFrame To CSV File")
 def write_df_to_csv(df_to_write: pd.DataFrame, file_path: str, file_name: str, index: bool = False):
@@ -194,7 +195,7 @@ def write_df_to_psv(df_to_write: pd.DataFrame, file_path: str, file_name: str):
 
 
 @keyword("Compare All File Contents In Directories")
-def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter: str = None, has_header: bool = True,
+def df_diff(source_file_path_name: str, target_file_path_name: str, delimiter: str = None, has_header: bool = True,
             width: list = None, colspecs: list = None, column_names: list = None, dtypes: dict = None,
             encoding: str = 'ISO-8859-1', on_bad_lines: str = 'warn', skiprows: int = 0, skipfooter: int = 0,
             key_columns: list = None, ignore_columns: list = None, report_type: str = 'all'):
@@ -203,8 +204,8 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter:
 
     `Args:`
     | *`Name`* | *`Type`* | *`Description`* |
-    | `actual_file_path_name` | `(str)` | `The path to the first file containing the actual DataFrame to compare.` |
-    | `expected_file_path_name` | `(str)`  | `The path to the second file containing the expected DataFrame to compare.` |
+    | `source_file_path_name` | `(str)` | `The path to the first file containing the source DataFrame to compare.` |
+    | `target_file_path_name` | `(str)`  | `The path to the second file containing the target DataFrame to compare.` |
     | `delimiter` | `(str)` | `The delimiter character used in the input files. Default is ','.` |
     | `has_header` | `(bool)` | `Whether the input files have headers. Default is True.` |
     | `width` | `(list or tuple)` | `A list or tuple of integers specifying the width of each fixed-width field. Required when reading a fixed-width file. Default is None.` |
@@ -224,9 +225,9 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter:
     | `pandas.DataFrame` | `A DataFrame containing the rows that are different between the two input DataFrames.` |
 
     Examples:
-    | ${df1} | Read CSV | path/to/actual.csv |
-    | ${df2} | Read CSV | path/to/expected.csv |
-    | ${diff} | Compare All File Contents In Directories | ${df1} | ${df2} | key_columns=['col1', 'col2'] | ignore_columns=['col3'] |
+    | ${source_df} | Read CSV | path/to/source.csv |
+    | ${target_df} | Read CSV | path/to/target.csv |
+    | ${diff} | Compare All File Contents In Directories | ${source_df} | ${target_df} | key_columns=['col1', 'col2'] | ignore_columns=['col3'] |
     """
 
     logger.info('****************************************************************************************************')
@@ -234,109 +235,105 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter:
     logger.info('****************************************************************************************************')
     logger.info('Step-01 : Based on file format create the data frames with delimiter(sep)')
 
-    df1 = create_dataframe_from_file(actual_file_path_name, delimiter, has_header, width, colspecs, column_names,
-                                     dtypes, encoding, on_bad_lines, skiprows, skipfooter)
-    df2 = create_dataframe_from_file(expected_file_path_name, delimiter, has_header, width, colspecs, column_names,
-                                     dtypes, encoding, on_bad_lines, skiprows, skipfooter)
+    source_df = create_dataframe_from_file(source_file_path_name, delimiter, has_header, width, colspecs, column_names,
+                                           dtypes, encoding, on_bad_lines, skiprows, skipfooter)
+    target_df = create_dataframe_from_file(target_file_path_name, delimiter, has_header, width, colspecs, column_names,
+                                           dtypes, encoding, on_bad_lines, skiprows, skipfooter)
 
-    # Store total records in actual and expected df
-    total_expected = round(len(df1))
-    total_actual = round(len(df2))
-    total_mismatch = total_expected - total_actual
+    # Store total records in source and target df
+    total_target = round(len(source_df))
+    total_source = round(len(target_df))
+    total_mismatch = total_target - total_source
 
     logger.info('Step-02 : Remove the columns based on ignore columns list')
+
     # If ignore columns are specified, remove those columns from comparison
-    if len(ignore_columns) > 0:
-        # Get column index type
-        col_idx = df1.columns.get_loc(df1.columns.tolist()[0])
-
-        # Iterate all the columns in ignore column list and if the column exist delete the column
+    if ignore_columns:
         for col in ignore_columns:
-            # Based on the column index type delete the column
-            if isinstance(col_idx, int):
-                if int(col) in df1.columns.tolist():
-                    df1.drop(df1.columns[int(col)], axis=1, inplace=True)
-            elif isinstance(col_idx, str):
-                if col in df1.columns.tolist():
-                    df1.drop(df1.columns[col], axis=1, inplace=True)
+            # Check if the column exists in source_df and target_df and remove it
+            if col in source_df.columns:
+                source_df.drop(columns=col, inplace=True)
+            if col in target_df.columns:
+                target_df.drop(columns=col, inplace=True)
 
-            if isinstance(col_idx, int):
-                if int(col) in df2.columns.tolist():
-                    df2.drop(df2.columns[int(col)], axis=1, inplace=True)
-            elif isinstance(col_idx, str):
-                if col in df2.columns.tolist():
-                    df2.drop(df2.columns[col], axis=1, inplace=True)
+            # If col is an integer within valid range, remove by index
+            elif isinstance(col, int) and 0 <= col < len(source_df.columns):
+                source_df.drop(columns=source_df.columns[col], inplace=True)
 
-    logger.info('Step-03 : Check for duplicate rows in both actual and expected')
+            elif isinstance(col, int) and 0 <= col < len(target_df.columns):
+                target_df.drop(columns=target_df.columns[col], inplace=True)
 
-    # Check for column differences in df1 and df2
-    df1_col_diff = set(df1.columns) - set(df2.columns)
-    df2_col_diff = set(df2.columns) - set(df1.columns)
+    logger.info('Step-03 : Check for duplicate rows in both source and target')
 
-    logger.debug(df1_col_diff)
-    df1_col_diff = set(df1.columns) - set(df2.columns)
+    # Check for column differences in source_df and target_df
+    source_df_col_diff = set(source_df.columns) - set(target_df.columns)
+    target_df_col_diff = set(target_df.columns) - set(source_df.columns)
+
+    logger.debug(source_df_col_diff)
+    source_df_col_diff = set(source_df.columns) - set(target_df.columns)
 
     # If key column is not specified then consider all columns except last column
     if len(key_columns) == 0:
-        key_columns = df1.columns.tolist()
+        key_columns = source_df.columns.tolist()
         key_columns.pop()
 
-    # Sort both expected and actual data frame
-    df1.sort_values(by=key_columns, ascending=True, inplace=True)
-    df2.sort_values(by=key_columns, ascending=True, inplace=True)
+    # Sort both target and source data frame
+    source_df.sort_values(by=key_columns, ascending=True, inplace=True)
+    target_df.sort_values(by=key_columns, ascending=True, inplace=True)
 
-    # Check for duplicate key columns in expected and actual data frame
-    df1_dup_df = df1[df1[key_columns].duplicated()]
-    df2_dup_df = df2[df2[key_columns].duplicated()]
+    # Check for duplicate key columns in target and source data frame
+    source_df_dup_df = source_df[source_df[key_columns].duplicated()]
+    target_df_dup_df = target_df[target_df[key_columns].duplicated()]
 
-    logger.debug(df1_dup_df)
-    logger.debug(df2_dup_df)
-    logger.debug(len(df1_dup_df))
-    logger.debug(len(df2_dup_df))
+    logger.debug(source_df_dup_df)
+    logger.debug(target_df_dup_df)
+    logger.debug(len(source_df_dup_df))
+    logger.debug(len(target_df_dup_df))
 
-    total_expected_dup = round(len(df1_dup_df))
-    total_actual_dup = round(len(df2_dup_df))
+    total_target_dup = round(len(source_df_dup_df))
+    total_source_dup = round(len(target_df_dup_df))
 
-    logger.info('Step-04 : Remove duplicate records from actual and expected')
+    logger.info('Step-04 : Remove duplicate records from source and target')
 
     # Get the duplicate key columns
-    dup_expected_df = df1_dup_df.copy()
-    dup_actual_df = df2_dup_df.copy()
-    dup_expected_df['source'] = 'Expected'
-    dup_actual_df['source'] = 'Actual'
+    dup_target_df = source_df_dup_df.copy()
+    dup_source_df = target_df_dup_df.copy()
+    dup_target_df['file'] = 'target'
+    dup_source_df['file'] = 'source'
 
-    # Combine the duplicate keys from expected and actual data frame
-    dup_cons_df = pd.concat([dup_expected_df, dup_actual_df], axis=0)
+    # Combine the duplicate keys from target and source data frame
+    dup_cons_df = pd.concat([dup_target_df, dup_source_df], axis=0)
     dup_cons_df.reset_index(inplace=True)
     dup_cons_df.drop('index', axis=1, inplace=True)
 
     # Drop the duplicate columns before detailed comparison
-    df1.drop_duplicates(key_columns, inplace=True)
-    df2.drop_duplicates(key_columns, inplace=True)
+    source_df.drop_duplicates(key_columns, inplace=True)
+    target_df.drop_duplicates(key_columns, inplace=True)
 
-    logger.debug(dup_expected_df)
-    logger.debug(dup_actual_df)
+    logger.debug(dup_target_df)
+    logger.debug(dup_source_df)
     logger.debug(dup_cons_df)
 
-    logger.info('Step-05 : Sort the actual and expected based on key columns and reset the index')
+    logger.info('Step-05 : Sort the source and target based on key columns and reset the index')
 
-    # Sort df1 and df2 based on key columns and reset the index
-    df1.sort_values(by=key_columns, ascending=True, inplace=True)
-    df2.sort_values(by=key_columns, ascending=True, inplace=True)
-    df1.reset_index(inplace=True)
-    df2.reset_index(inplace=True)
+    # Sort source_df and target_df based on key columns and reset the index
+    source_df.sort_values(by=key_columns, ascending=True, inplace=True)
+    target_df.sort_values(by=key_columns, ascending=True, inplace=True)
+    source_df.reset_index(inplace=True)
+    target_df.reset_index(inplace=True)
 
-    # Set the index based on key columns in df1 and df2. Remove the default index column
-    df1 = df1.set_index(key_columns, drop=True, append=False, inplace=False, verify_integrity=True)
-    df2 = df2.set_index(key_columns, drop=True, append=False, inplace=False, verify_integrity=True)
-    df1 = df1.drop('index', axis=1)
-    df2 = df2.drop('index', axis=1)
+    # Set the index based on key columns in source_df and target_df. Remove the default index column
+    source_df = source_df.set_index(key_columns, drop=True, append=False, inplace=False, verify_integrity=True)
+    target_df = target_df.set_index(key_columns, drop=True, append=False, inplace=False, verify_integrity=True)
+    source_df = source_df.drop('index', axis=1)
+    target_df = target_df.drop('index', axis=1)
 
-    logger.info('Step-06 : Identify the rows matching based on key in both actual and expected')
+    logger.info('Step-06 : Identify the rows matching based on key in both source and target')
 
-    # Identify the rows matching based on key in both df1 and df2
-    merge_outer_df = pd.merge(df1, df2, how='outer', left_index=True, right_index=True, indicator='source')
-    # merge_outer_df = pd.merge(df1_key_columns, df2_key_columns, how='outer', on=key_columns, indicator='source')
+    # Identify the rows matching based on key in both source_df and target_df
+    merge_outer_df = pd.merge(source_df, target_df, how='outer', left_index=True, right_index=True, indicator='source')
+    # merge_outer_df = pd.merge(source_df_key_columns, target_df_key_columns, how='outer', on=key_columns,
+    # indicator='source')
 
     # Based on the key columns create key matched and mismatched details
     key_matched_df = merge_outer_df.loc[merge_outer_df['source'] == 'both'].copy()
@@ -348,27 +345,43 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter:
     # key_mismatched_df['source'] = 'MisMatched'
     logger.debug(key_mismatched_df)
 
-    # Update the source column left_only to actual and right_only to expected
-    # key_mismatched_df.loc[key_mismatched_df['source'] == 'left_only', 'source'] = 'Actual'
+    # Update the source column left_only to source and right_only to target
+    # key_mismatched_df.loc[key_mismatched_df['source'] == 'left_only', 'source'] = 'source'
 
-    expected_key_mismatch = len(key_mismatched_df[key_mismatched_df.source == 'left_only'])
-    actual_key_mismatch = len(key_mismatched_df[key_mismatched_df.source == 'right_only'])
+    target_key_mismatch = len(key_mismatched_df[key_mismatched_df.source == 'left_only'])
+    source_key_mismatch = len(key_mismatched_df[key_mismatched_df.source == 'right_only'])
+
+    # Create DataFrames for Data Only In Source and Data Only In Target
+    data_only_in_source_df = source_df[~source_df.index.isin(target_df.index)].copy()
+    data_only_in_target_df = target_df[~target_df.index.isin(source_df.index)].copy()
 
     logger.info('Step-07 : Create the summary report based on count diff, duplicate rows and key mismatches')
 
+    only_in_source_count = len(data_only_in_source_df)
+    only_in_target_count = len(data_only_in_target_df)
+
+    # Calculate count details for each column
+    count_details = {
+        'Source Total': [len(source_df)],
+        'Target Total': [len(target_df)],
+        'Total Key Matched': [len(key_matched_df)],
+        'Total Key & Data Matched': [0],
+        'Total Data Breaks': [0],
+        'Only in Source': [only_in_source_count],
+        'Only in Target': [only_in_target_count],
+        'Source Key Duplicates': [total_source_dup],
+        'Target Key Duplicates': [total_target_dup],
+        'Key Columns': [', '.join(key_columns)]  # Convert key_columns list to a comma-separated string
+    }
+
     # Create the executive summary df
-    exec_summary_col = ['Summary', 'Expected', 'Actual', 'Mismatch']
-
-    exec_summary_df = pd.DataFrame(columns=exec_summary_col)
-    exec_summary_df.loc[1] = ['Total_Records', total_expected, total_actual, total_mismatch]
-    exec_summary_df.loc[2] = ['Duplicates', total_expected_dup, total_actual_dup, 0]
-    exec_summary_df.loc[3] = ['Key_Mismatch', expected_key_mismatch, actual_key_mismatch, 0]
-
+    exec_summary_df = pd.DataFrame.from_dict(count_details)
     logger.debug(exec_summary_df)
 
     logger.info('Step-08 : Remove the mismatched key values and proceed further in validation')
-    df1.drop(key_mismatched_df.loc[key_mismatched_df['source'] == 'left_only'].index, inplace=True)
-    df2.drop(key_mismatched_df.loc[key_mismatched_df['source'] == 'right_only'].index, inplace=True)
+
+    source_df.drop(key_mismatched_df.loc[key_mismatched_df['source'] == 'left_only'].index, inplace=True)
+    target_df.drop(key_mismatched_df.loc[key_mismatched_df['source'] == 'right_only'].index, inplace=True)
 
     # Step-08 to Step-12: Handle different report types
     if report_type == 'all':
@@ -388,55 +401,91 @@ def df_diff(actual_file_path_name: str, expected_file_path_name: str, delimiter:
         # Invalid report type specified, raise an exception
         raise ValueError("Invalid 'report_type' specified. Valid values are 'all', 'duplicate', or 'key_mismatch'.")
 
-    logger.info('Step-09 : Started cell by cell comparison for key values that exist in both actual and expected')
+    # Check if source_df and target_df are equal
+    if source_df.equals(target_df):
+        logger.info('No differences found between the DataFrames.')
+        logger.info('************************************************************************************************')
+        data_only_in_source_df = pd.DataFrame([])
+        data_only_in_target_df = pd.DataFrame([])
+        cell_comp_df = pd.DataFrame([])
 
-    # Verify if columns in both df1 and df2 are same
-    if not df1.columns.equals(df2.columns):
+        return exec_summary_df, dup_cons_df, key_matched_df, key_mismatched_df, data_only_in_source_df, \
+            data_only_in_target_df, cell_comp_df
+
+    logger.info('Step-09 : Started cell by cell comparison for key values that exist in both source and target')
+
+    # Verify if columns in both source_df and target_df are same
+    if not source_df.columns.equals(target_df.columns):
         logger.debug('Failed - Column mismatch determined')
         # Handle the column mismatch case here if needed
         # ...
 
-    logger.info('Step-10 : Verify column data types in both the files, if not convert based on actual')
-    if not df1.dtypes.equals(df2.dtypes):
+    logger.info('Step-10 : Verify column data types in both the files, if not convert based on source')
+    if not source_df.dtypes.equals(target_df.dtypes):
         logger.debug('Data Types are different, trying to convert')
-        df2 = df2.astype(df1.dtypes)
+        target_df = target_df.astype(source_df.dtypes)
 
     logger.info('Step-11 : Verify cell by cell data in both the data frame and generate mismatch report')
 
     # Identify where cells are different and generate a boolean mask
-    diff_mask = (df1 != df2) & ~(df1.isnull() & df2.isnull())
+    diff_mask = (source_df != target_df) & ~(source_df.isnull() & target_df.isnull())
 
-    # Create a DataFrame with mismatched cells
-    cell_comp_df = df1.where(diff_mask).stack().reset_index()
-    key_columns_names = key_columns if isinstance(key_columns, list) else [key_columns]
-    cell_comp_df.columns = key_columns_names + ['Column', 'Expected_Data']
+    # Special case: Treat 0 values in both DataFrames as matches
+    zero_mask = (source_df == 0) & (target_df == 0)
+    diff_mask = diff_mask | zero_mask
 
-    def get_index_value(row):
-        if len(key_columns_names) > 1:
-            return tuple(row[key] for key in key_columns_names)
-        else:
-            return row[key_columns_names[0]]
+    # Check if diff_mask is empty (no differences found)
+    if len(diff_mask) == 0:
+        logger.info('Step-12 : No differences found between the DataFrames.')
+        cell_comp_df = pd.DataFrame(columns=key_columns + ['Column', 'Target_Data', 'Source_Data', 'Compare_Result'])
+    else:
+        # Create a DataFrame with mismatched cells
+        cell_comp_df = source_df.where(diff_mask).stack().reset_index()
+        key_columns_names = key_columns if isinstance(key_columns, list) else [key_columns]
+        cell_comp_df.columns = key_columns_names + ['Column', 'Target_Data']
 
-    # Apply the helper function to get index values
-    cell_comp_df['Index_Value'] = cell_comp_df.apply(get_index_value, axis=1)
+        def get_index_value(row):
+            if len(key_columns_names) > 1:
+                return tuple(row[key] for key in key_columns_names)
+            else:
+                return row[key_columns_names[0]]
 
-    # Use Index_Value to fetch Actual_Data
-    cell_comp_df['Actual_Data'] = cell_comp_df.apply(
-        lambda row: df2.at[row['Index_Value'], row['Column']],
-        axis=1
-    )
+        # Apply the helper function to get index values
+        cell_comp_df['Index_Value'] = cell_comp_df.apply(get_index_value, axis=1)
 
-    # Add a 'Compare_Result' column
-    cell_comp_df['Compare_Result'] = np.where(cell_comp_df['Expected_Data'] != cell_comp_df['Actual_Data'],
-                                              'Mismatch', 'Match')
+        # Use Index_Value to fetch Source_Data
+        cell_comp_df['Source_Data'] = cell_comp_df.apply(
+            lambda row: target_df.at[row['Index_Value'], row['Column']],
+            axis=1
+        )
 
-    # Drop the Index_Value column before returning
-    cell_comp_df = cell_comp_df.drop(columns=['Index_Value'])
+        # Add a 'Compare_Result' column
+        cell_comp_df['Compare_Result'] = np.where(cell_comp_df['Target_Data'] != cell_comp_df['Source_Data'],
+                                                  'Mismatch', 'Match')
+
+        # Drop the Index_Value column before returning
+        cell_comp_df = cell_comp_df.drop(columns=['Index_Value'])
+
+    # Calculate "Total Key & Data Matched" and "Total Data Breaks"
+    # total_key_data_matched = len(cell_comp_df[cell_comp_df['Compare_Result'] == 'Match'])
+    total_data_breaks = len(cell_comp_df[cell_comp_df['Compare_Result'] == 'Mismatch'])
+
+    # Assuming you have a DataFrame cell_comp_df representing cell-by-cell comparison results
+    # Get the indices where there are no data breaks (mismatches)
+    non_break_indices = cell_comp_df[cell_comp_df['Compare_Result'] != 'Mismatch'].index
+
+    # Calculate the count of unique keys that are not in total_data_breaks and not duplicated
+    count_indices_matched = len(set(non_break_indices))
+
+    # Update the count details in the executive summary DataFrame
+    exec_summary_df.loc[0, 'Total Key & Data Matched'] = count_indices_matched
+    exec_summary_df.loc[0, 'Total Data Breaks'] = total_data_breaks
 
     logger.info('Step-12 : Comparison completed and generated info for reports(summary, keys mismatch, cell by cell)')
     logger.info('****************************************************************************************************')
 
-    return exec_summary_df, dup_cons_df, key_matched_df, key_mismatched_df, cell_comp_df
+    return exec_summary_df, dup_cons_df, key_matched_df, key_mismatched_df, data_only_in_source_df, \
+        data_only_in_target_df, cell_comp_df
 
 
 @keyword('Compare All Files In Directories')
