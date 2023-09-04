@@ -396,7 +396,7 @@ def df_diff(source_file_path_name: str, target_file_path_name: str, delimiter: s
         # Return only the key mismatch report and exit the function
         logger.info('Step-09 : Comparison completed and generated info for reports(summary, key_mismatch')
         logger.info('************************************************************************************************')
-        return exec_summary_df, key_mismatched_df
+        return exec_summary_df, key_mismatched_df, data_only_in_source_df, data_only_in_target_df
     else:
         # Invalid report type specified, raise an exception
         raise ValueError("Invalid 'report_type' specified. Valid values are 'all', 'duplicate', or 'key_mismatch'.")
