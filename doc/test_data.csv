@@ -1,3 +1,3 @@
-﻿tbe,test_name,test_scenario,test_tags,icd_available,keyword,actual_file_path_v,expected_file_path_v,delimiter_v,has_header_v,key_columns_v,colspecs_v,dtypes_v,skiprows_v,skipfooter_v,report_type_v
+﻿tbe,test_name,test_scenario,test_tags,icd_available,keyword,source_file_path_v,target_file_path_v,delimiter_v,has_header_v,key_columns_v,colspecs_v,dtypes_v,skiprows_v,skipfooter_v,report_type_v
 Yes,TC_01_Compare Files for Process 1,Compare 2 files from source and target,"test_tag1, regression ",Yes,Compare all files and generate comparison report,,,,TRUE,"[Field_1, Field-2]","[(0,3),(3,7)]",,1,1,duplicate
 No,TC_02_Compare Files for Process 2,Compare 2 files from source and target,"test_tag2, smoke_test ",No,Compare all files and generate comparison report,,,,FALSE,"[Field_1, Field-2]","[(0,3),(3,7)]",,1,1,key_mismatch

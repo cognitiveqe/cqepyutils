@@ -2,6 +2,7 @@ from robot.api import logger
 from typing import List
 from PandasUtils import RFPandasUtils
 import pandas as pd
+import os
 
 
 class DynamicTestCases(object):
@@ -43,56 +44,91 @@ class DynamicTestCases(object):
 
     @staticmethod
     def preprocess_kwargs(row):
-        """Preprocesses keyword arguments based on ICD configuration.
+        """
+        Preprocesses keyword arguments based on ICD configuration.
 
         Args:
-            | *Name*              | *Type*  | *Description*                                     |
-            | `row`               | `dict`  | The row of data containing test case information. |
+        | *Name*              | *Type*  | *Description*                                     |
+        | `row`               | `dict`  | The row of data containing test case information. |
 
         Returns:
-            | `dict` | A dictionary containing preprocessed keyword arguments.
+        | *Type* | *Description* |
+        | `dict` | A dictionary containing preprocessed keyword arguments. |
 
         The method checks if the 'icd_available' value in the row is 'yes' or 'y'.
-        If available, it extracts the 'icd_config_path' from the row and reads the ICD configuration file.
-        The method returns a dictionary with 'colspecs', 'data_types', and 'column_names' if applicable,
+        If available, it extracts the 'icd_in_db', 'config_file_path', and 'db_config_name' from the row.
+        It then reads the ICD configuration file based on the provided information.
+
+        The method returns a dictionary with 'colspecs', 'dtypes', 'column_names', and 'key_columns' if applicable,
         otherwise an empty dictionary.
+
+        `icd_in_db` (str, optional): Indicates whether the ICD configuration is in a database ('yes') or a file.
+        `config_file_path` (str, optional): The path to the database configuration file if 'icd_in_db' is 'yes'.
+        `db_config_name` (str, optional): The name of the database configuration if 'icd_in_db' is 'yes'.
 
         Example:
         | ${kwargs} = | Preprocess Kwargs | ${row} |
         """
         icd_available = row.get('icd_available', '').lower()
-        if icd_available in ['yes', 'y']:
+        icd_in_db = row.get('icd_in_db', '').lower()
+        if icd_available in ['yes', 'y'] and icd_in_db.lower() == 'yes':
+            config_file_path = row.get('config_file_path', '')
+            query_file_path = row.get('query_file_path', '')
+            db_config_name = row.get('db_config_name', '')
+            replace_value_dict = {
+                'service_id': row.get('service_id', ''),
+                'service_ver': row.get('service_ver', '')
+            }
+            colspecs, _, dtypes, column_names, key_columns = \
+                RFPandasUtils.get_file_format_using_icd(icd_in_db, query_file_path, config_file_path,
+                                                        db_config_name, replace_value_dict)
+            return {
+                'colspecs': colspecs,
+                'dtypes': dtypes,
+                'column_names': column_names,
+                'key_columns': key_columns
+            }
+        else:
             icd_config_path = row.get('icd_config_path', '')  # Extract the icd_config_path from the row
             if icd_config_path:
-                colspecs, _, dtypes, column_names = RFPandasUtils.get_file_format_using_icd(icd_config_path)
+                colspecs, _, dtypes, column_names, key_columns = \
+                    RFPandasUtils.get_file_format_using_icd(icd_in_db, icd_config_path=icd_config_path)
                 return {
                     'colspecs': colspecs,
                     'dtypes': dtypes,
-                    'column_names': column_names
+                    'column_names': column_names,
+                    'key_columns': key_columns
                 }
         return {}
 
-    def read_test_data_and_add_test_cases(self, csv_file_path: str):
-        """Reads test data from a CSV file and adds test cases dynamically.
+    def read_test_data_and_add_test_cases(self, test_data_file_path: str):
+        """Reads test data from a CSV or Excel file and adds test cases dynamically.
 
         Args:
-            | *Name*                  | *Type*   | *Description*                                                      |
-            | `csv_file_path`         | `str`    | The path to the CSV file containing test data.                    |
+            | *Name*             | *Type*   | *Description*                               |
+            | `test_data_file_path` | `str`    | The path to the test data file (CSV or Excel). |
 
-        The CSV file should have the following columns:
+        The file should have the following columns:
         - test_name (*str*): Name of the test case.
         - test_scenario (*str*): Description of the test scenario.
         - test_tags (*str*): Comma-separated tags for categorization.
         - keyword (*str*): The keyword associated with the test.
-        - icd_available (*str*): 'Yes' or 'No' indicating whether ICD configuration is available.
+        - tbe (*str*): 'Yes' or 'No' indicating whether the test case should be executed.
         - icd_config_path (*str*): The path to the ICD configuration file (if available).
         - Any additional columns ending with '_v' (*str*): Additional parameters for the test case.
 
         Example:
-        | Read Test Data And Add Test Cases | /path/to/test_data.csv |
+        | Read Test Data And Add Test Cases | /path/to/test_data.xlsx |
         """
         try:
-            df = pd.read_csv(csv_file_path, dtype='str')
+            file_extension = os.path.splitext(test_data_file_path)[-1].lower()
+
+            if file_extension == '.csv':
+                df = pd.read_csv(test_data_file_path, dtype='str')
+            elif file_extension == '.xlsx':
+                df = pd.read_excel(test_data_file_path, dtype='str', sheet_name=0)
+            else:
+                raise ValueError("Unsupported file format. Supported formats are .csv and .xlsx.")
 
             # Filter rows based on values in the 'tbe' column
             filtered_df = df[df['tbe'].str.lower().isin(['yes', 'y'])]
@@ -110,6 +146,6 @@ class DynamicTestCases(object):
 
                 self.add_test_case(name=name, doc=doc, tags=tags, kwname=kwname, **kwargs)
 
-            logger.info(f"Successfully added test cases from '{csv_file_path}'.")
+            logger.info(f"Successfully added test cases from '{test_data_file_path}'.")
         except Exception as e:
-            logger.error(f"Error occurred while reading test data from '{csv_file_path}': {e}")
+            logger.error(f"Error occurred while reading test data from '{test_data_file_path}': {e}")
