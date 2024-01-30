@@ -71,6 +71,7 @@ class DynamicTestCases(object):
         """
         icd_available = row.get('icd_available', '').lower()
         icd_in_db = row.get('icd_in_db', '').lower()
+
         if icd_available in ['yes', 'y'] and icd_in_db.lower() == 'yes':
             config_file_path = row.get('config_file_path', '')
             query_file_path = row.get('query_file_path', '')
@@ -82,24 +83,30 @@ class DynamicTestCases(object):
             colspecs, _, dtypes, column_names, key_columns = \
                 RFPandasUtils.get_file_format_using_icd(icd_in_db, query_file_path, config_file_path,
                                                         db_config_name, replace_value_dict)
+            logger.info('Step - 1: Processed kwargs with ICD from DB')
             return {
                 'colspecs': colspecs,
                 'dtypes': dtypes,
                 'column_names': column_names,
                 'key_columns': key_columns
             }
+        elif icd_available in ['no', 'n'] or icd_available.lower() == 'no':
+            return {}
         else:
             icd_config_path = row.get('icd_config_path', '')  # Extract the icd_config_path from the row
             if icd_config_path:
                 colspecs, _, dtypes, column_names, key_columns = \
                     RFPandasUtils.get_file_format_using_icd(icd_in_db, icd_config_path=icd_config_path)
+                logger.info('Step - 2: Processed kwargs with ICD from Config File')
                 return {
                     'colspecs': colspecs,
                     'dtypes': dtypes,
                     'column_names': column_names,
                     'key_columns': key_columns
                 }
-        return {}
+            else:
+                logger.info('ICD not available. Returning empty dictionary.')
+                return {}
 
     def read_test_data_and_add_test_cases(self, test_data_file_path: str):
         """Reads test data from a CSV or Excel file and adds test cases dynamically.

@@ -417,6 +417,7 @@ def df_diff(source_file_path_name: str, target_file_path_name: str, delimiter: s
         data_only_in_source_df = pd.DataFrame([])
         data_only_in_target_df = pd.DataFrame([])
         cell_comp_df = pd.DataFrame([])
+        exec_summary_df.loc[0, 'Total Keys & Data Matched'] = len(source_df)
 
         return exec_summary_df, dup_cons_df, key_matched_df, key_mismatched_df, data_only_in_source_df, \
             data_only_in_target_df, cell_comp_df
@@ -437,7 +438,9 @@ def df_diff(source_file_path_name: str, target_file_path_name: str, delimiter: s
     logger.info('Step-11 : Verify cell by cell data in both the data frame and generate mismatch report')
 
     # Identify where cells are different and generate a boolean mask
-    diff_mask = (source_df != target_df) & ~(source_df.isnull() & target_df.isnull())
+    source_df.fillna('Empty Cell', inplace=True)
+    target_df.fillna('Empty Cell', inplace=True)
+    diff_mask = (source_df != target_df) # & ~(source_df.isnull() & target_df.isnull())
 
     # Special case: Treat 0 values in both DataFrames as matches
     zero_mask = (source_df == 0) & (target_df == 0)
@@ -839,6 +842,8 @@ def get_file_format_using_icd(icd_in_db: str, query_file_path: str = None, confi
     column_names = []
     key_columns = []
 
+    logger.info(f"ICD in DB: {icd_in_db}")
+
     if icd_in_db.lower() == 'yes':
         logger.info(f"Step-01: Reading ICD configuration from DB")
         try:
@@ -848,7 +853,6 @@ def get_file_format_using_icd(icd_in_db: str, query_file_path: str = None, confi
                                              database_config_name=db_config_name)
             # Filter rows where unique_key_field is 'Yes'
             key_columns = icd_df[icd_df['unique_key_field'] == 'Y']['field_name'].tolist()
-
         except Exception as e:
             logger.error(f"Error reading ICD configuration: {e}")
             return None, None, None, None
@@ -899,7 +903,7 @@ def get_file_format_using_icd(icd_in_db: str, query_file_path: str = None, confi
         return colspecs, widths, dtypes, column_names, key_columns
 
 
-def consolidate_execution_summary(results_folder_path, test_data_csv):
+def consolidate_execution_summary(results_folder_path, test_data_file_path):
     """
     Consolidate execution summary for tests marked as "tbe" (To Be Executed).
 
@@ -913,50 +917,59 @@ def consolidate_execution_summary(results_folder_path, test_data_csv):
     `Returns:`
         | `pd.DataFrame` | The consolidated DataFrame containing execution summary. |
     """
-    # Read the test_data.csv file into a DataFrame
-    test_data_df = pd.read_csv(test_data_csv)
 
-    # Filter rows where tbe is "Yes"
-    tbe_yes_tests = test_data_df[test_data_df["tbe"] == "Yes"]
+    try:
+        file_extension = os.path.splitext(test_data_file_path)[-1].lower()
 
-    # Initialize an empty DataFrame to store the consolidated data
-    consolidated_df = pd.DataFrame()
-
-    step = 1  # Initialize step counter
-
-    for test_name in tbe_yes_tests["test_name"]:
-        logger.info(f"Step - {step}: Processing test: {test_name}")
-        step += 1
-
-        # Define the path to the Overall Count Statistics.csv file for each test
-        summary_file_path = os.path.join(results_folder_path, test_name, "Overall Count Statistics.csv")
-
-        # Check if the file exists
-        if os.path.exists(summary_file_path):
-            logger.info(f"Step - {step}: Loading summary data for test: {test_name}")
-            step += 1
-
-            # Load the data from the CSV file into a DataFrame
-            summary_df = pd.read_csv(summary_file_path)
-
-            # Add 'Test Name' column to the summary DataFrame
-            summary_df['Test Name'] = test_name
-
-            # Determine status based on conditions
-            conditions = (
-                (summary_df['Total Keys & Data Matched'] < summary_df['Source Total']) |
-                (summary_df['Total Keys & Data Matched'] < summary_df['Target Total'])
-            )
-            summary_df['Status'] = 'FAIL' if conditions.any() else 'PASS'
-
-            # Concatenate the data to the consolidated DataFrame
-            consolidated_df = pd.concat([consolidated_df, summary_df], ignore_index=True)
+        if file_extension == '.csv':
+            test_data_df = pd.read_csv(test_data_file_path, dtype='str')
+        elif file_extension == '.xlsx':
+            test_data_df = pd.read_excel(test_data_file_path, dtype='str', sheet_name=0)
         else:
-            logger.info(f"Step - {step}: Summary file not found for test: {test_name}")
+            raise ValueError("Unsupported file format. Supported formats are .csv and .xlsx.")
+
+        # Filter rows where tbe is "Yes"
+        tbe_yes_tests = test_data_df[test_data_df["tbe"] == "Yes"]
+
+        # Initialize an empty DataFrame to store the consolidated data
+        consolidated_df = pd.DataFrame()
+
+        step = 1  # Initialize step counter
+
+        for test_name in tbe_yes_tests["test_name"]:
+            logger.info(f"Step - {step}: Processing test: {test_name}")
             step += 1
 
-    # Reorder the columns
-    consolidated_df = consolidated_df[['Test Name', 'Status'] + [col for col in consolidated_df if col not in ['Test Name', 'Status']]]
+            # Define the path to the Overall Count Statistics.csv file for each test
+            summary_file_path = os.path.join(results_folder_path, test_name, "Overall Count Statistics.csv")
 
-    return consolidated_df
+            # Check if the file exists
+            if os.path.exists(summary_file_path):
+                logger.info(f"Step - {step}: Loading summary data for test: {test_name}")
+                step += 1
 
+                # Load the data from the CSV file into a DataFrame
+                summary_df = pd.read_csv(summary_file_path)
+
+                # Add 'Test Name' column to the summary DataFrame
+                summary_df['Test Name'] = test_name
+
+                # Determine status based on conditions
+                conditions = (
+                    (summary_df['Total Keys & Data Matched'] < summary_df['Source Total']) |
+                    (summary_df['Total Keys & Data Matched'] < summary_df['Target Total'])
+                )
+                summary_df['Status'] = 'FAIL' if conditions.any() else 'PASS'
+
+                # Concatenate the data to the consolidated DataFrame
+                consolidated_df = pd.concat([consolidated_df, summary_df], ignore_index=True)
+            else:
+                logger.info(f"Step - {step}: Summary file not found for test: {test_name}")
+                step += 1
+
+        # Reorder the columns
+        consolidated_df = consolidated_df[['Test Name', 'Status'] + [col for col in consolidated_df if col not in ['Test Name', 'Status']]]
+
+        return consolidated_df
+    except Exception as e:
+        logger.error(f"Error occurred while reading test data from '{test_data_file_path}': {e}")

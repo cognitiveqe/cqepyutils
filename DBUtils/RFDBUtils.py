@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 import pandas as pd
 import yaml
-from sqlalchemy import create_engine
+import oracledb
 from robot.api.deco import keyword
 import matplotlib.pyplot as plt
 from IPython.display import display
@@ -16,6 +16,7 @@ import plotly.graph_objs as go
 import plotly.figure_factory as ff
 import plotly.subplots as sp
 
+oracledb.init_oracle_client()
 pyo.init_notebook_mode()
 
 
@@ -40,7 +41,7 @@ def get_query_from_file(file_path: str) -> str:
 def execute_query(query: str, config_file_path: str, database_config_name: str,
                   query_params: Optional[Dict] = None) -> pd.DataFrame:
     """
-    Executes an SQL query on a specified database configuration using SQLAlchemy.
+    Executes an SQL query on a specified database configuration using oracledb.
 
     Args:
     | *`Name`* | *`Type`* | *`Description`* |
@@ -69,26 +70,37 @@ def execute_query(query: str, config_file_path: str, database_config_name: str,
     | `Execute Query`     | `query=SELECT * FROM my_table` `config_file_path=/path/to/config.yaml` `database_config_name=my_database` |
     |                      | `query_params={"param1": "value1"}`                                        |
     """
+
     # Step 1: Load database configuration from config file
     logging.info('Step 1: Loading database configuration from config file...')
     with open(config_file_path, 'r') as file:
         config = yaml.safe_load(file)
     db_config = config['database_configurations'][database_config_name]
 
-    # Step 2: Connect to database using SQLAlchemy
-    logging.info('Step 2: Connecting to database using SQLAlchemy...')
-    password = base64.b64decode(db_config['password'].encode()).decode()  # decode base64-encoded password
-    engine = create_engine(
-        f"oracle://{db_config['username']}:{password}@{db_config['host']}:{db_config['port']}/?service_name={db_config['service_name']}")
+    # Step 2: Connect to the database using oracledb
+    logging.info('Step 2: Connecting to the database using oracledb...')
+    connection_params = {
+        "user": db_config['username'],
+        "password": base64.b64decode(db_config['password'].encode()).decode(),
+        "dsn": f"{db_config['host']}:{db_config['port']}/{db_config['service_name']}"
+    }
+    connection = oracledb.connect(**connection_params)
 
     # Step 3: Execute SQL query
     logging.info('Step 3: Executing SQL query...')
-    if query_params:
-        result = pd.read_sql_query(query, engine, params=query_params)
-    else:
-        result = pd.read_sql_query(query, engine)
+    with connection.cursor() as cursor:
+        if query_params:
+            cursor.execute(query, query_params)
+        else:
+            cursor.execute(query)
+
+        # Fetch all the results into a Pandas DataFrame
+        result = pd.DataFrame(cursor.fetchall(), columns=[desc[0] for desc in cursor.description])
 
     result = result.fillna('')
+
+    # Step 4: Close the connection
+    connection.close()
 
     return result
 
